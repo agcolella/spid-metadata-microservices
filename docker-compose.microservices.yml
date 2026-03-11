@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  file-service:
+    build: ./services/file-service
+    ports: ["4001:4001"]
+    environment:
+      FILE_SERVICE_PORT: 4001
+
+  validation-service:
+    build: ./services/validation-service
+    ports: ["4002:4002"]
+    environment:
+      VALIDATION_SERVICE_PORT: 4002
+
+  backoffice-service:
+    build: ./services/backoffice-service
+    ports: ["4006:4006"]
+    environment:
+      BACKOFFICE_SERVICE_PORT: 4006
+      JWT_ACCESS_SECRET:       \${JWT_ACCESS_SECRET:-change-me-access}
+      JWT_REFRESH_SECRET:      \${JWT_REFRESH_SECRET:-change-me-refresh}
+      ADMIN_PASSWORD:          \${ADMIN_PASSWORD:-Admin@1234!}
+      DB_PATH:                 /app/data/backoffice.db
+    volumes:
+      - backoffice_data:/app/data
+
+  gateway:
+    build: ./gateway
+    ports: ["8080:8080"]
+    environment:
+      GATEWAY_PORT:           8080
+      FILE_SERVICE_URL:       http://file-service:4001
+      VALIDATION_SERVICE_URL: http://validation-service:4002
+      BACKOFFICE_SERVICE_URL: http://backoffice-service:4006
+    depends_on:
+      - file-service
+      - validation-service
+      - backoffice-service
+
+volumes:
+  backoffice_data:

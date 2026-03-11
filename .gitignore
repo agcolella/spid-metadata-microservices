@@ -1,0 +1,28 @@
+# Secrets — MAI committare
+.env
+.env.*
+*.env
+!.env.example
+
+# Node
+node_modules/
+*/node_modules/
+
+# Database SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Upload e file generati
+services/file-service/uploads/
+services/file-service/saved-xml/
+services/batch-service/batch-uploads/
+services/backoffice-service/backoffice.db
+
+# Log
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,4 +1,5 @@
-import Database from 'better-sqlite3';
+// services/backoffice-service/db.js
+import { DatabaseSync } from 'node:sqlite';  // ← built-in Node 22+
 import bcrypt   from 'bcryptjs';
 import path     from 'path';
 import { fileURLToPath } from 'url';
@@ -6,10 +7,13 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH   = process.env.DB_PATH || path.join(__dirname, 'backoffice.db');
 
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const db = new DatabaseSync(DB_PATH);
 
+// Abilita WAL e foreign keys
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
+
+// ── Schema ────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,
@@ -51,6 +55,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_tokens_user   ON refresh_tokens(user_id);
 `);
 
+// ── Seed admin ────────────────────────────────────────────
 const adminExists = db.prepare(`SELECT id FROM users WHERE username = 'admin'`).get();
 if (!adminExists) {
   const { v4: uuidv4 } = await import('uuid');

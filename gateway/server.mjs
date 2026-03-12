@@ -12,7 +12,7 @@ const BACKOFFICE_SVC = process.env.BACKOFFICE_SERVICE_URL || 'http://localhost:4
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
-  'https://spid-metadata-app.vercel.app'
+  'https://spid-metadata-app-v2-0.vercel.app/'
 ];
 
 const app = express();

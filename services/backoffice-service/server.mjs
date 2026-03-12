@@ -1,3 +1,4 @@
+// services/backoffice-service/server.mjs
 import express    from 'express';
 import cors       from 'cors';
 import authRoutes  from './routes/authRoutes.js';
@@ -20,23 +21,30 @@ const app = express();
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    cb(new Error(\`CORS bloccato per origin: \${origin}\`));
+    cb(new Error(`CORS bloccato per origin: ${origin}`));
   },
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
+// ── Health ────────────────────────────────────────────────
 app.get('/health', (_, res) =>
   res.json({ service: 'backoffice-service', status: 'ok', port: PORT })
 );
 
+// ── Ruoli disponibili (pubblico, usato dal frontend) ──────
 app.get('/roles', (_, res) => {
   res.json(
     Object.entries(ROLES).map(([key, val]) => ({ key, ...val }))
   );
 });
 
+// ────────────────────────────────────────────────────────
+// ENDPOINT /authorize — chiamato dal gateway per ogni
+// richiesta in ingresso agli altri microservizi.
+// Body: { token: string, requiredRole?: string }
+// ────────────────────────────────────────────────────────
 app.post('/authorize', (req, res) => {
   const { token, requiredRole } = req.body;
   if (!token) return res.status(400).json({ authorized: false, error: 'Token mancante' });
@@ -49,7 +57,7 @@ app.post('/authorize', (req, res) => {
     if (requiredRole && userLevel < minLevel) {
       return res.status(403).json({
         authorized: false,
-        error: \`Ruolo insufficiente. Richiesto: \${requiredRole}, hai: \${payload.role}\`
+        error: `Ruolo insufficiente. Richiesto: ${requiredRole}, hai: ${payload.role}`
       });
     }
 
@@ -60,15 +68,18 @@ app.post('/authorize', (req, res) => {
   }
 });
 
+// ── Routes ────────────────────────────────────────────────
 app.use('/auth',  authRoutes);
 app.use('/users', userRoutes);
 app.use('/audit', auditRoutes);
 
+// ── Error handler ─────────────────────────────────────────
 app.use((err, _, res, __) => {
   console.error('Errore backoffice:', err.message);
   res.status(500).json({ error: 'Errore interno del server', message: err.message });
 });
 
+// ── Pulizia token scaduti ogni 6 ore ──────────────────────
 setInterval(() => {
   tokenService.cleanExpiredTokens();
   console.log('🧹 Token scaduti rimossi');

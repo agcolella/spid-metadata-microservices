@@ -55,7 +55,7 @@ async function authMiddleware(req, res, next) {
   const requiredRole = matchedRoute ? ROUTE_ROLES[matchedRoute] : 'viewer';
 
   try {
-    const axios = (await import('axios')).default;
+    const { default: axios } = (await import('axios')).default;
     const { data } = await axios.post(
       `${BACKOFFICE_SVC}/authorize`,
       { token, requiredRole },

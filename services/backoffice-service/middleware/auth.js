@@ -26,7 +26,7 @@ export function requireRole(minRole) {
 
     if (userLevel < minLevel) {
       return res.status(403).json({
-        error: \`Accesso negato. Ruolo richiesto: \${minRole} (hai: \${req.user?.role})\`
+        error: `Accesso negato. Ruolo richiesto: ${minRole} (hai: ${req.user?.role})`
       });
     }
     next();

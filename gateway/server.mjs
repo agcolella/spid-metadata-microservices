@@ -26,8 +26,19 @@ app.use(cors({
 }));
 app.use(express.json());
 
-const proxy = (target, pathRewrite) =>
-  createProxyMiddleware({ target, changeOrigin: true, pathRewrite });
+const proxy = (target, stripPrefix) =>
+  createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    pathFilter: '**',
+    on: {
+      proxyReq: (proxyReq, req) => {
+        const newPath = req.originalUrl.replace(stripPrefix, '') || '/';
+        proxyReq.path = newPath;
+      }
+    }
+  });
+
 
 // Mappa path → ruolo minimo richiesto
 const ROUTE_ROLES = {
@@ -40,22 +51,24 @@ const ROUTE_ROLES = {
 
 // Middleware auth centralizzato
 async function authMiddleware(req, res, next) {
+  const url = req.originalUrl || req.url;
+
   if (
-    req.path.startsWith('/api/auth') ||
-    req.path.startsWith('/api/users') ||
-    req.path.startsWith('/api/audit') ||
-    req.path === '/health'
+    url.startsWith('/api/auth') ||
+    url.startsWith('/api/users') ||
+    url.startsWith('/api/audit') ||
+    url === '/health'
   ) return next();
 
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
   if (!token) return res.status(401).json({ error: 'Autenticazione richiesta' });
 
-  const matchedRoute = Object.keys(ROUTE_ROLES).find(r => req.path.startsWith(r));
+  const matchedRoute = Object.keys(ROUTE_ROLES).find(r => url.startsWith(r));
   const requiredRole = matchedRoute ? ROUTE_ROLES[matchedRoute] : 'viewer';
 
   try {
-    const { default: axios } = (await import('axios')).default;
+    const axios = (await import('axios')).default;
     const { data } = await axios.post(
       `${BACKOFFICE_SVC}/authorize`,
       { token, requiredRole },
@@ -77,19 +90,45 @@ async function authMiddleware(req, res, next) {
   }
 }
 
+
 app.use(authMiddleware);
 
 // Proxy verso microservizi
-app.use('/api/files',    proxy(FILE_SVC,   { '^/api/files':   '' }));
-app.use('/api/validate', proxy(VALID_SVC,  { '^/api/validate': '' }));
-app.use('/api/github',   proxy(GITHUB_SVC, { '^/api/github':  '' }));
-app.use('/api/pr',       proxy(PR_SVC,     { '^/api/pr':      '' }));
-app.use('/api/batch',    proxy(BATCH_SVC,  { '^/api/batch':   '' }));
+app.use('/api/files',    proxy(FILE_SVC,        '/api/files'));
+app.use('/api/validate', proxy(VALID_SVC,        '/api/validate'));
+app.use('/api/github',   proxy(GITHUB_SVC,       '/api/github'));
+app.use('/api/pr',       proxy(PR_SVC,           '/api/pr'));
+app.use('/api/batch',    proxy(BATCH_SVC,        '/api/batch'));
 
-// Proxy verso backoffice
-app.use('/api/auth',  proxy(BACKOFFICE_SVC, { '^/api/auth':  '' }));
-app.use('/api/users', proxy(BACKOFFICE_SVC, { '^/api/users': '' }));
-app.use('/api/audit', proxy(BACKOFFICE_SVC, { '^/api/audit': '' }));
+
+// Proxy manuale per backoffice (auth/users/audit)
+async function backofficeProxy(req, res) {
+  const axios = (await import('axios')).default;
+  const strip = req.originalUrl.match(/^\/api\/(auth|users|audit)/)?.[0];
+  const segment = strip?.replace('/api/', '/') || '';
+  const targetUrl = BACKOFFICE_SVC + segment + req.originalUrl.slice(strip?.length || 0);
+  try {
+    const response = await axios({
+      method: req.method,
+      url: targetUrl,
+      data: req.body,
+      headers: {
+        'content-type': req.headers['content-type'] || 'application/json',
+        ...(req.headers.authorization ? { authorization: req.headers.authorization } : {})
+      },
+      timeout: 10000,
+      validateStatus: () => true
+    });
+    res.status(response.status).json(response.data);
+  } catch (e) {
+    res.status(502).json({ error: 'Backoffice non raggiungibile', detail: e.message });
+  }
+}
+
+app.use('/api/auth',  backofficeProxy);
+app.use('/api/users', backofficeProxy);
+app.use('/api/audit', backofficeProxy);
+
 
 // Health aggregato
 app.get('/health', async (req, res) => {

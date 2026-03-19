@@ -15,7 +15,7 @@ function Login() {
     setLoading(true);
     try {
       const { data } = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
-      localStorage.setItem('spid_token', data.token);
+      localStorage.setItem('spid_token', data.accessToken);
       window.location.href = '/';
     } catch (err) {
       setError(err.response?.data?.error || 'Credenziali non valide. Riprovare.');

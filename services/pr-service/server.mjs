@@ -186,12 +186,14 @@ app.post('/create', async (req, res) => {
       return res.status(500).json({ error: 'Impossibile creare branch' });
 
     console.log(`🌿 Branch creato: ${branchName}`);
-
+    await new Promise(r => setTimeout(r, 2500));
     // 6. Upload file
     const filesToUpload = filesData.map(f => ({
       filename: f.filename,
       path:     `metadata/${f.filename}`,
-      content:  f.content,
+      content:  Buffer.isBuffer(f.content)
+              ? f.content.toString('base64')
+              : Buffer.from(f.content, 'utf8').toString('base64'),
       message:  `Add ${f.organizationName || f.filename}`
     }));
 

@@ -1,6 +1,8 @@
 import express      from 'express';
 import cors         from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import http from 'http';
+
 
 const PORT       = process.env.GATEWAY_PORT           || 8080;
 const FILE_SVC   = process.env.FILE_SERVICE_URL       || 'http://localhost:4001';
@@ -12,7 +14,7 @@ const BACKOFFICE_SVC = process.env.BACKOFFICE_SERVICE_URL || 'http://localhost:4
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
-  'https://spid-metadata-app-v2-0.vercel.app/'
+//  'https://spid-metadata-app-v2-0.vercel.app/'
 ];
 
 const app = express();
@@ -24,7 +26,6 @@ app.use(cors({
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
 
 const proxy = (target, stripPrefix) =>
   createProxyMiddleware({
@@ -48,6 +49,8 @@ const ROUTE_ROLES = {
   '/api/pr':       'operator',
   '/api/batch':    'operator',
 };
+
+
 
 // Middleware auth centralizzato
 async function authMiddleware(req, res, next) {
@@ -90,45 +93,81 @@ async function authMiddleware(req, res, next) {
   }
 }
 
+// Upload file — pipe diretto (bypassa express.json e proxy manuale)
+app.use('/api/files/upload', (req, res) => {
+  const target = new URL(FILE_SVC);
+  const options = {
+    hostname: target.hostname,
+    port: target.port || 80,
+    path: '/upload',
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: target.host,
+    },
+  };
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', (e) => {
+    res.status(502).json({ error: 'Upload service non raggiungibile', detail: e.message });
+  });
+  req.pipe(proxyReq);
+});
 
+
+app.use(express.json());
 app.use(authMiddleware);
 
-// Proxy verso microservizi
-app.use('/api/files',    proxy(FILE_SVC,        '/api/files'));
-app.use('/api/validate', proxy(VALID_SVC,        '/api/validate'));
-app.use('/api/github',   proxy(GITHUB_SVC,       '/api/github'));
-app.use('/api/pr',       proxy(PR_SVC,           '/api/pr'));
-app.use('/api/batch',    proxy(BATCH_SVC,        '/api/batch'));
+// Proxy manuale con axios (compatibile con http-proxy-middleware v3)
+async function makeProxy(targetBase, stripPrefix, targetPrefix = '') {
+  return async function(req, res) {
+    const axios = (await import('axios')).default;
+    const subPath = req.originalUrl.slice(stripPrefix.length) || '/';
+    const targetUrl = targetBase + targetPrefix + subPath;
 
-
-// Proxy manuale per backoffice (auth/users/audit)
-async function backofficeProxy(req, res) {
-  const axios = (await import('axios')).default;
-  const strip = req.originalUrl.match(/^\/api\/(auth|users|audit)/)?.[0];
-  const segment = strip?.replace('/api/', '/') || '';
-  const targetUrl = BACKOFFICE_SVC + segment + req.originalUrl.slice(strip?.length || 0);
-  try {
-    const response = await axios({
-      method: req.method,
-      url: targetUrl,
-      data: req.body,
-      headers: {
-        'content-type': req.headers['content-type'] || 'application/json',
-        ...(req.headers.authorization ? { authorization: req.headers.authorization } : {})
-      },
-      timeout: 10000,
-      validateStatus: () => true
-    });
-    res.status(response.status).json(response.data);
-  } catch (e) {
-    res.status(502).json({ error: 'Backoffice non raggiungibile', detail: e.message });
-  }
+    try {
+      const response = await axios({
+        method: req.method,
+        url: targetUrl,
+        data: req.body,
+        headers: {
+          'content-type': req.headers['content-type'] || 'application/json',
+          ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+          ...(req.headers['x-user-id']   ? { 'x-user-id':   req.headers['x-user-id']   } : {}),
+          ...(req.headers['x-user-role'] ? { 'x-user-role': req.headers['x-user-role'] } : {}),
+          ...(req.headers['x-username']  ? { 'x-username':  req.headers['x-username']  } : {}),
+        },
+        timeout: 10000,
+        validateStatus: () => true
+      });
+      res.status(response.status).json(response.data);
+    } catch (e) {
+      res.status(502).json({ error: 'Servizio non raggiungibile', detail: e.message });
+    }
+  };
 }
 
-app.use('/api/auth',  backofficeProxy);
-app.use('/api/users', backofficeProxy);
-app.use('/api/audit', backofficeProxy);
 
+const filesProxy    = await makeProxy(FILE_SVC,       '/api/files');
+const validateProxy = await makeProxy(VALID_SVC,      '/api/validate');
+const githubProxy   = await makeProxy(GITHUB_SVC,     '/api/github');
+const prProxy       = await makeProxy(PR_SVC,         '/api/pr');
+const batchProxy    = await makeProxy(BATCH_SVC,      '/api/batch');
+const authProxy     = await makeProxy(BACKOFFICE_SVC, '/api/auth',  '/auth');
+const usersProxy    = await makeProxy(BACKOFFICE_SVC, '/api/users', '/users');
+const auditProxy    = await makeProxy(BACKOFFICE_SVC, '/api/audit', '/audit');
+
+
+app.use("/api/files",    filesProxy);
+app.use("/api/validate", validateProxy);
+app.use("/api/github",   githubProxy);
+app.use("/api/pr",       prProxy);
+app.use("/api/batch",    batchProxy);
+app.use("/api/auth",     authProxy);
+app.use("/api/users",    usersProxy);
+app.use("/api/audit",    auditProxy);
 
 // Health aggregato
 app.get('/health', async (req, res) => {

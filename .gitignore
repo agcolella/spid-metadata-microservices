@@ -29,3 +29,6 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+services/backoffice-service/*.db-shm
+services/backoffice-service/*.db-wal
+services/backoffice-service/*.db

@@ -465,55 +465,88 @@ function MainPage() {
                   </div>
                 )}
               </div>
+              {/* ── Selezione rapida ─────────────────────────────── */}
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
 
-              <div style={{ display:'flex', gap:4, flexWrap:'wrap', padding:'8px 4px' }}>
-                <button style={S.btn('#334155')} onClick={selectAll} title="Seleziona tutti">
-                  ☑ Tutti
-                </button>
-                <button style={S.btn('#334155')} onClick={() => {
-                  const allSelected = files.every(f => selectedFiles.includes(f.filename));
-                  allSelected ? deselectAll() : selectAll();
-                }} title="Inverti selezione">
-                  ⇄ Inverti
-                </button>
-                <button style={S.btn('#b45309')} onClick={() =>
-                  setSelectedFiles(files.filter(f => f.validation?.errors?.length > 0).map(f => f.filename))
-                } title="Seleziona file con errori">
-                  ❌ Con errori
-                </button>
-                <button style={S.btn('#166534')} onClick={() =>
-                  setSelectedFiles(files.filter(f => f.validation && f.validation.errors?.length === 0).map(f => f.filename))
-                } title="Seleziona file senza errori">
-                  ✅ Senza errori
-                </button>
-                <button style={S.btn('#7c3aed')} onClick={async () => {
-                  const toLoad = files.filter(f => f.entityID && !registryCache[f.entityID]);
-                  await Promise.all(toLoad.map(f => loadRegistryData(f.entityID)));
-                  // Evidenzia (non sostituisce la selezione) — toglie/aggiunge highlight
-                  setSelectedFiles(prev => {
-                    const inRegistry = files
-                      .filter(f => f.entityID && registryCache[f.entityID]?.exists)
-                      .map(f => f.filename);
-                    // Se tutti già selezionati, deselezionali; altrimenti aggiungili
-                    const allIn = inRegistry.every(fn => prev.includes(fn));
-                    return allIn
-                      ? prev.filter(fn => !inRegistry.includes(fn))
-                      : [...new Set([...prev, ...inRegistry])];
-                  });
-                }} title="Evidenzia file presenti nel registry SPID">
-                  🌐 Registry
-                </button>
+                {/* Dropdown selezione rapida */}
+                <select
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    if (val === 'all')       { selectAll(); }
+                    if (val === 'none')      { deselectAll(); }
+                    if (val === 'invert')    {
+                      const allSel = files.every(f => selectedFiles.includes(f.filename));
+                      allSel ? deselectAll() : selectAll();
+                    }
+                    if (val === 'errors')    {
+                      setSelectedFiles(files.filter(f => f.validation?.errors?.length > 0).map(f => f.filename));
+                    }
+                    if (val === 'noerrors')  {
+                      setSelectedFiles(files.filter(f => f.validation && f.validation.errors?.length === 0).map(f => f.filename));
+                    }
+                    if (val === 'registry')  {
+                      (async () => {
+                        const toLoad = files.filter(f => f.entityID && !registryCache[f.entityID]);
+                        await Promise.all(toLoad.map(f => loadRegistryData(f.entityID)));
+                        setSelectedFiles(prev => {
+                          const inReg = files
+                            .filter(f => f.entityID && registryCache[f.entityID]?.exists)
+                            .map(f => f.filename);
+                          const allIn = inReg.every(fn => prev.includes(fn));
+                          return allIn
+                            ? prev.filter(fn => !inReg.includes(fn))
+                            : [...new Set([...prev, ...inReg])];
+                        });
+                      })();
+                    }
+                    e.target.value = ''; // reset dropdown
+                  }}
+                  style={{
+                    flex: 1,
+                    background: '#334155',
+                    color: '#f1f5f9',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: '6px 8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                  }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>⚡ Selezione rapida…</option>
+                  <option value="all">☑ Tutti ({files.length})</option>
+                  <option value="none">☐ Nessuno</option>
+                  <option value="invert">⇄ Inverti</option>
+                  <option value="errors">❌ Solo con errori</option>
+                  <option value="noerrors">✅ Solo senza errori</option>
+                  <option value="registry">🌐 Solo in Registry</option>
+                </select>
+
+                {/* Deseleziona — visibile solo se c'è qualcosa di selezionato */}
                 {selectedFiles.length > 0 && (
-                  <button style={S.btn('#dc2626')} onClick={deselectAll} title="Cancella selezione">
-                    ✗ ({selectedFiles.length})
-                  </button>
-                )}
-                {selectedFiles.length > 0 && (
-                  <button style={S.btn('#dc2626')} onClick={deleteSelected} title="Elimina file selezionati">
-                    🗑 Elimina ({selectedFiles.length})
+                  <button
+                    style={S.btn('#475569')}
+                    onClick={deselectAll}
+                    title="Cancella selezione"
+                  >
+                    ✗ {selectedFiles.length}
                   </button>
                 )}
               </div>
+
+              {/* ── Azioni sui selezionati ───────────────────────── */}
+              {selectedFiles.length > 0 && (
+                <div style={{ display:'flex', gap:6 }}>
+                  <button style={{ ...S.btn('#dc2626'), flex:1 }} onClick={deleteSelected}>
+                    🗑 Elimina ({selectedFiles.length})
+                  </button>
+                  <button style={{ ...S.btn('#10b981'), flex:1 }} onClick={openPRPreview} disabled={!githubValid}>
+                    🚀 PR ({selectedFiles.length})
+                  </button>
+                </div>
+              )}
+
 
               {selectedFiles.length > 0 && (
                 <button style={{ ...S.btn('#10b981'), marginTop:4 }} onClick={openPRPreview} disabled={!githubValid}>

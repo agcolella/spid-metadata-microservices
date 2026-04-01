@@ -129,6 +129,7 @@ function MainPage() {
   const [errorFilterMode, setErrorFilterMode]     = useState('all');
   const [xmlModalContent, setXmlModalContent]     = useState(null);
   const [sectionsCollapsed, setSectionsCollapsed] = useState({ upload:false, files:false });
+  const [validFilesForPR, setValidFilesForPR] = useState([]);
 
   const fileInputRef = useRef();
   const dirInputRef  = useRef();
@@ -284,32 +285,54 @@ function MainPage() {
 
   const openPRPreview = async () => {
     if (selectedFiles.length === 0) { notify.warning('Seleziona almeno un file'); return; }
+
+    const validFiles = selectedFiles.filter(fn => {
+      const file = files.find(f => f.filename === fn);
+      return file?.validation && file.validation.errors?.length === 0;
+    });
+
+    if (validFiles.length === 0) {
+      notify.error('Nessun file valido (tutti hanno errori di validazione)');
+      return;
+    }
+
+    if (validFiles.length < selectedFiles.length) {
+      notify.warning(`${selectedFiles.length - validFiles.length} file con errori esclusi dalla PR`);
+    }
+
     try {
-      const res = await axios.post(API.previewPR, { files: selectedFiles }, getAuthHeaders());
+      const res = await axios.post(API.previewPR, { files: validFiles }, getAuthHeaders());
       setPrPreview(res.data);
+      setValidFilesForPR(validFiles); // ← salva i file filtrati
     } catch (err) { notify.error('Errore anteprima PR: ' + (err.response?.data?.error || err.message)); }
   };
+
 
   const confirmCreatePR = async () => {
     setPrInProgress(true); setPrStep(0);
     try {
       const res = await axios.post(API.createPR, {
-        files: selectedFiles, organizations: prPreview.organizations, draft: false
+        files: validFilesForPR,           // ← usa i file filtrati, non selectedFiles
+        organizations: prPreview.organizations,
+        draft: false
       }, getAuthHeaders());
       if (res.data.success) {
         notify.success('PR creata con successo!');
-        const newPR = { id:Date.now(), number:res.data.number, url:res.data.url, branch:res.data.branch,
-          organizations:prPreview.organizations, fileCount:selectedFiles.length,
-          createdAt:new Date().toISOString(), status:'open' };
+        const newPR = {
+          id: Date.now(), number: res.data.number, url: res.data.url, branch: res.data.branch,
+          organizations: prPreview.organizations, fileCount: validFilesForPR.length,
+          createdAt: new Date().toISOString(), status: 'open'
+        };
         const updated = [newPR, ...pullRequests];
         setPullRequests(updated);
         localStorage.setItem(LS_KEY, JSON.stringify(updated));
-        setSelectedFiles([]); setPrPreview(null);
+        setSelectedFiles([]); setValidFilesForPR([]); setPrPreview(null);
         await loadFiles();
       }
     } catch (err) { notify.error('Errore creazione PR: ' + (err.response?.data?.error || err.message)); }
     finally { setPrInProgress(false); setPrStep(0); }
   };
+
 
   // ── espansione righe ─────────────────────────────────
 

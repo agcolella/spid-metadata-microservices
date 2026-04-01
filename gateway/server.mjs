@@ -139,7 +139,7 @@ async function makeProxy(targetBase, stripPrefix, targetPrefix = '') {
           ...(req.headers['x-user-role'] ? { 'x-user-role': req.headers['x-user-role'] } : {}),
           ...(req.headers['x-username']  ? { 'x-username':  req.headers['x-username']  } : {}),
         },
-        timeout: 10000,
+        timeout: 120000,
         validateStatus: () => true
       });
       res.status(response.status).json(response.data);

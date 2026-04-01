@@ -188,35 +188,51 @@ app.post('/create', async (req, res) => {
     console.log(`🌿 Branch creato: ${branchName}`);
     await new Promise(r => setTimeout(r, 2500));
     // 6. Upload file
+// DOPO (corretto — passa la stringa grezza, ci pensa GitHubService)
+    
+    // 6. Upload file
+    console.log(`📦 Preparazione ${filesData.length} file da uploadare...`);
     const filesToUpload = filesData.map(f => ({
       filename: f.filename,
       path:     `metadata/${f.filename}`,
       content:  Buffer.isBuffer(f.content)
-              ? f.content.toString('base64')
-              : Buffer.from(f.content, 'utf8').toString('base64'),
+              ? f.content.toString('utf8')
+              : f.content,
       message:  `Add ${f.organizationName || f.filename}`
     }));
 
-    const uploadRes = await axios.post(`${GITHUB_SVC}/upload`, {
-      branch: branchName,
-      files:  filesToUpload
-    });
-    const { results: uploaded, errors: uploadErrors } = uploadRes.data;
-
-    console.log(`📤 Upload: ${uploaded.length} ok, ${uploadErrors.length} errori`);
-
-    // 7. Crea PR — chiama github-service direttamente via Octokit
-    //    (il github-service espone POST /pr)
+      console.log(`🔼 Chiamo github-service /upload con ${filesToUpload.length} file...`);
+      let uploadRes;
+      try {
+        uploadRes = await axios.post(`${GITHUB_SVC}/upload`, {
+          branch: branchName,
+          files:  filesToUpload
+        }, { timeout: 120000 });
+      } catch (uploadErr) {
+        console.error('❌ Errore upload dettaglio:', uploadErr.response?.data || uploadErr.message);
+        throw uploadErr;
+      }
+      const { results: uploaded, errors: uploadErrors } = uploadRes.data;
+    // 7. Crea PR
     const prTitle = generateTitle(files.length, orgList);
     const prBody  = generateBody(filesData, orgList, { errors: allErrors, warnings: allWarnings, duplicates });
 
-    const prRes = await axios.post(`${GITHUB_SVC}/pr`, {
-      branch: branchName,
-      base:   BASE_BRANCH,
-      title:  prTitle,
-      body:   prBody,
-      draft
-    });
+    console.log('[DEBUG /create] Chiamo github-service /pr con branch:', branchName, 'base:', BASE_BRANCH);
+
+    // PR — aggiungi timeout nel try
+    let prRes;
+    try {
+      prRes = await axios.post(`${GITHUB_SVC}/pr`, {
+        branch: branchName,
+        base:   BASE_BRANCH,
+        title:  prTitle,
+        body:   prBody,
+        draft
+      }, { timeout: 30000 });  // ← aggiungi
+    } catch (prErr) {
+      console.error('[DEBUG /pr] Errore:', prErr.response?.data || prErr.message);
+      throw prErr;
+    }
 
     console.log(`✅ PR creata: ${prRes.data.url}`);
 
@@ -234,7 +250,6 @@ app.post('/create', async (req, res) => {
     res.status(500).json({ success: false, error: e.message });
   }
 });
-
 // ── GET /status/:number ───────────────────────────────────
 app.get('/status/:number', async (req, res) => {
   try {

@@ -6,7 +6,7 @@ import { GitHubService } from './GitHubService.js';
 const PORT = process.env.GITHUB_SERVICE_PORT || 4003;
 const app  = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 function getService(res) {
   try   { return new GitHubService(); }

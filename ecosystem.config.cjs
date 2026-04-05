@@ -57,6 +57,14 @@ module.exports = {
       autorestart: true,
     },
     {
+    name: 'certificate-service',
+    script: 'server.mjs',
+    cwd: '/home/pi/spid-metadata-microservices/services/certificate-service',
+    node_args: '--env-file=/home/pi/spid-metadata-microservices/.env',
+    watch: false,
+    autorestart: true,
+    },
+    {
       name: 'frontend',
       script: 'node_modules/.bin/react-scripts',
       args: 'start',

@@ -111,13 +111,15 @@ function App() {
 // ─── MAIN PAGE ───────────────────────────────────────────
 function MainPage() {
   const [files, setFiles]                         = useState([]);
-  const [validating, setValidating]               = useState(new Set());
+  const [validating, setValidating] = useState(() => new Set());
+  const [certificateLoading, setCertificateLoading] = useState(() => new Set());
   const [selectedFiles, setSelectedFiles]         = useState([]);
   const [search, setSearch]                       = useState('');
   const [sortConfig, setSortConfig]               = useState({ key:'creationDate', direction:'desc' });
   const [uploadProgress, setUploadProgress]       = useState({ loaded:0, total:0, active:false });
   const [uploadErrors, setUploadErrors]           = useState([]);
   const [registryCache, setRegistryCache]         = useState({});
+  const [certificateCache, setCertificateCache]   = useState({});
   const [resultsPerPage, setResultsPerPage]       = useState(10);
   const [page, setPage]                           = useState(1);
   const [pullRequests, setPullRequests]           = useState([]);
@@ -142,6 +144,12 @@ function MainPage() {
     if (raw) { try { setPullRequests(JSON.parse(raw)); } catch { setPullRequests([]); } }
   }, []);
 
+  const ensureSet = (value) => {
+    if (value instanceof Set) return value;
+    if (Array.isArray(value)) return new Set(value);
+    return new Set();
+  };
+
   // ── helpers ──────────────────────────────────────────
 
   const toggleSection = (s) => setSectionsCollapsed(prev => ({ ...prev, [s]: !prev[s] }));
@@ -155,15 +163,40 @@ function MainPage() {
 
   const loadValidation = async (filename) => {
     const file = files.find(f => f.filename === filename);
-    if (file?.validation) return;
-    setValidating(prev => new Set([...prev, filename]));
+    if (file?.validation) return file.validation;
+
+    setValidating(prev => {
+      const next = ensureSet(prev);
+      next.add(filename);
+      return new Set(next);
+    });
+
     try {
       const res = await axios.get(API.fileValidate(filename), getAuthHeaders());
-      setFiles(prev => prev.map(f => f.filename === filename ? { ...f, validation: res.data } : f));
-    } catch {
-      setFiles(prev => prev.map(f => f.filename === filename ? { ...f, validation: { errors:[], warnings:[] } } : f));
+
+      setFiles(prev =>
+        Array.isArray(prev)
+          ? prev.map(f => (f.filename === filename ? { ...f, validation: res.data } : f))
+          : []
+      );
+
+      return res.data;
+    } catch (err) {
+      const fallbackValidation = { errors: [], warnings: [] };
+
+      setFiles(prev =>
+        Array.isArray(prev)
+          ? prev.map(f => (f.filename === filename ? { ...f, validation: fallbackValidation } : f))
+          : []
+      );
+
+      return fallbackValidation;
     } finally {
-      setValidating(prev => { const s = new Set(prev); s.delete(filename); return s; });
+      setValidating(prev => {
+        const next = ensureSet(prev);
+        next.delete(filename);
+        return new Set(next);
+      });
     }
   };
 
@@ -187,6 +220,48 @@ function MainPage() {
     }
   };
 
+  const loadCertificateData = async (entityId) => {
+    if (!entityId || certificateCache[entityId]) return certificateCache[entityId];
+
+    setCertificateLoading(prev => {
+      const next = ensureSet(prev);
+      next.add(entityId);
+      return new Set(next);
+    });
+
+    try {
+      const res = await axios.post(
+        `${API_BASE}/api/certificates/verify`,
+        { entityId },
+        getAuthHeaders()
+      );
+
+      setCertificateCache(prev => ({
+        ...(prev && typeof prev === 'object' ? prev : {}),
+        [entityId]: res.data
+      }));
+
+      return res.data;
+    } catch (err) {
+      const data = {
+        valid: false,
+        error: err.response?.data?.error || err.message || 'Errore verifica certificato'
+      };
+
+      setCertificateCache(prev => ({
+        ...(prev && typeof prev === 'object' ? prev : {}),
+        [entityId]: data
+      }));
+
+      return data;
+    } finally {
+      setCertificateLoading(prev => {
+        const next = ensureSet(prev);
+        next.delete(entityId);
+        return new Set(next);
+      });
+    }
+  };
   const handleViewXml = async (filename) => {
     try {
       const res     = await axios.post(`${API_BASE}/api/files/get-xml-contents`, { filenames:[filename] }, getAuthHeaders());
@@ -336,16 +411,24 @@ function MainPage() {
 
   // ── espansione righe ─────────────────────────────────
 
-  const toggleRowExpansion = async (filename) => {
-    if (expandedRows.includes(filename)) {
-      setExpandedRows(prev => prev.filter(f => f !== filename));
-      return;
-    }
-    setExpandedRows(prev => [...prev, filename]);
-    const file = files.find(f => f.filename === filename);
-    if (file?.entityID && !registryCache[file.entityID]) loadRegistryData(file.entityID);
-    loadValidation(filename);
-  };
+  const toggleRowExpansion = async filename => {
+if ((Array.isArray(expandedRows) ? expandedRows : []).includes(filename)) {
+  setExpandedRows(prev => (Array.isArray(prev) ? prev.filter(f => f !== filename) : []));
+  return;
+}
+
+setExpandedRows(prev => (Array.isArray(prev) ? [...prev, filename] : [filename]));
+
+  const file = files.find(f => f.filename === filename);
+  if (file?.entityID && !registryCache[file.entityID]) {
+    loadRegistryData(file.entityID);
+  }
+  if (file?.entityID && !certificateCache[file.entityID]) {
+    loadCertificateData(file.entityID);
+  }
+
+  loadValidation(filename);
+};
 
   // ── sort / paginazione ───────────────────────────────
 
@@ -380,7 +463,12 @@ function MainPage() {
   };
 
   // ── render ───────────────────────────────────────────
-
+console.log('validating instanceof Set', validating instanceof Set, validating);
+console.log('certificateLoading instanceof Set', certificateLoading instanceof Set, certificateLoading);
+console.log('files isArray', Array.isArray(files), files);
+console.log('selectedFiles isArray', Array.isArray(selectedFiles), selectedFiles);
+console.log('expandedRows isArray', Array.isArray(expandedRows), expandedRows);
+console.log('pullRequests isArray', Array.isArray(pullRequests), pullRequests);
   return (
     <div style={S.page}>
 
@@ -439,7 +527,7 @@ function MainPage() {
                   .filter(f => f.filename.toLowerCase().includes(search.toLowerCase()))
                   .map(file => {
                     const isSelected   = selectedFiles.includes(file.filename);
-                    const isValidating = validating.has(file.filename);
+                    const isValidating = ensureSet(validating).has(file.filename);
                     const errCount     = file.validation?.errors?.length  || 0;
                     const warnCount    = file.validation?.warnings?.length || 0;
                     const inRegistry   = file.entityID && registryCache[file.entityID]?.exists;
@@ -493,37 +581,61 @@ function MainPage() {
 
                 {/* Dropdown selezione rapida */}
                 <select
-                  onChange={e => {
+                  onChange={async e => {
                     const val = e.target.value;
                     if (!val) return;
-                    if (val === 'all')       { selectAll(); }
-                    if (val === 'none')      { deselectAll(); }
-                    if (val === 'invert')    {
+
+                    if (val === 'all') {
+                      selectAll();
+                    }
+
+                    if (val === 'none') {
+                      deselectAll();
+                    }
+
+                    if (val === 'invert') {
                       const allSel = files.every(f => selectedFiles.includes(f.filename));
                       allSel ? deselectAll() : selectAll();
                     }
-                    if (val === 'errors')    {
-                      setSelectedFiles(files.filter(f => f.validation?.errors?.length > 0).map(f => f.filename));
+
+                    if (val === 'errors') {
+                      setSelectedFiles(
+                        files
+                          .filter(f => Array.isArray(f.validation?.errors) && f.validation.errors.length > 0)
+                          .map(f => f.filename)
+                      );
                     }
-                    if (val === 'noerrors')  {
-                      setSelectedFiles(files.filter(f => f.validation && f.validation.errors?.length === 0).map(f => f.filename));
+
+                    if (val === 'noerrors') {
+                      setSelectedFiles(
+                        files
+                          .filter(f => f.validation && Array.isArray(f.validation.errors) && f.validation.errors.length === 0)
+                          .map(f => f.filename)
+                      );
                     }
-                    if (val === 'registry')  {
-                      (async () => {
-                        const toLoad = files.filter(f => f.entityID && !registryCache[f.entityID]);
-                        await Promise.all(toLoad.map(f => loadRegistryData(f.entityID)));
-                        setSelectedFiles(prev => {
-                          const inReg = files
-                            .filter(f => f.entityID && registryCache[f.entityID]?.exists)
-                            .map(f => f.filename);
-                          const allIn = inReg.every(fn => prev.includes(fn));
-                          return allIn
-                            ? prev.filter(fn => !inReg.includes(fn))
-                            : [...new Set([...prev, ...inReg])];
-                        });
-                      })();
+
+                    if (val === 'registry') {
+                      const toLoad = files.filter(f => f.entityID && !registryCache[f.entityID]);
+                      await Promise.all(toLoad.map(f => loadRegistryData(f.entityID)));
+
+                      setSelectedFiles(prev => {
+                        const safePrev = Array.isArray(prev) ? prev : [];
+
+                        const inReg = files
+                          .filter(f => f.entityID && registryCache[f.entityID]?.exists)
+                          .map(f => f.filename);
+
+                        const allIn = inReg.every(fn => safePrev.includes(fn));
+
+                        if (allIn) {
+                          return safePrev.filter(fn => !inReg.includes(fn));
+                        }
+
+                        return [...new Set([...safePrev, ...inReg])];
+                      });
                     }
-                    e.target.value = ''; // reset dropdown
+
+                    e.target.value = '';
                   }}
                   style={{
                     flex: 1,
@@ -620,144 +732,328 @@ function MainPage() {
                 </thead>
                 <tbody>
                   {paginatedFiles.map(file => {
-                    const isExpanded  = expandedRows.includes(file.filename);
-                    const isValidating = validating.has(file.filename);
-                    const registry    = file.entityID ? registryCache[file.entityID] : null;
+                    const safeExpandedRows = Array.isArray(expandedRows) ? expandedRows : [];
+                    const safeValidating = ensureSet(validating);
+                    const safeCertificateLoading = ensureSet(certificateLoading);
+
+                    const isExpanded = safeExpandedRows.includes(file.filename);
+                    const isValidating = safeValidating.has(file.filename);
+                    const registry = file.entityID ? registryCache[file.entityID] : null;
+                    const certInfo = file.entityID ? certificateCache[file.entityID] : null;
+                    const certLoading = file.entityID ? safeCertificateLoading.has(file.entityID) : false;
+
+                    const validationErrors = Array.isArray(file?.validation?.errors)
+                      ? file.validation.errors
+                      : [];
+
+                    const validationWarnings = Array.isArray(file?.validation?.warnings)
+                      ? file.validation.warnings
+                      : [];
+
+                    const certErrors = Array.isArray(certInfo?.errors)
+                      ? certInfo.errors
+                      : [];
+
                     return (
                       <React.Fragment key={file.filename}>
-                        {/* ── riga principale ── */}
-                        <tr onClick={() => toggleRowExpansion(file.filename)}
-                          style={{ cursor:'pointer', background: isExpanded ? '#f0f9ff' : '#fff' }}>
-                          <td style={{ ...S.td, textAlign:'center', fontWeight:700, color:'#3b82f6' }}>
+                        <tr
+                          onClick={() => toggleRowExpansion(file.filename)}
+                          style={{ cursor: 'pointer', background: isExpanded ? '#f0f9ff' : '#fff' }}
+                        >
+                          <td style={{ ...S.td, textAlign: 'center', fontWeight: 700, color: '#3b82f6' }}>
                             {isExpanded ? '−' : '+'}
                           </td>
-                          <td style={S.td}><code style={{ fontSize:'0.8rem' }}>{file.filename}</code></td>
-                          <td style={S.td}>{file.organizationName || <span style={{ color:'#9ca3af' }}>N/A</span>}</td>
                           <td style={S.td}>
-                            <span style={{ fontSize:'0.76rem', color:'#6b7280' }}>
-                              {file.entityID ? file.entityID.substring(0,45)+'…' : <span style={{ color:'#9ca3af' }}>N/A</span>}
+                            <code style={{ fontSize: '0.8rem' }}>{file.filename}</code>
+                          </td>
+                          <td style={S.td}>
+                            {file.organizationName || <span style={{ color: '#9ca3af' }}>N/A</span>}
+                          </td>
+                          <td style={S.td}>
+                            <span style={{ fontSize: '0.76rem', color: '#6b7280' }}>
+                              {file.entityID
+                                ? `${file.entityID.substring(0, 45)}…`
+                                : <span style={{ color: '#9ca3af' }}>N/A</span>}
                             </span>
                           </td>
-                          <td style={S.td}>{file.creationDate ? new Date(file.creationDate).toLocaleDateString('it-IT') : 'N/A'}</td>
+                          <td style={S.td}>
+                            {file.creationDate
+                              ? new Date(file.creationDate).toLocaleDateString('it-IT')
+                              : 'N/A'}
+                          </td>
                           <td style={S.td}>
                             {isValidating ? (
-                              <span style={{ fontSize:'0.8rem', color:'#94a3b8' }}>⟳ validazione...</span>
+                              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>⟳ validazione...</span>
                             ) : (
                               <ValidationBadge validation={file.validation} />
                             )}
                           </td>
                         </tr>
 
-                        {/* ── riga espansa ── */}
                         {isExpanded && (
                           <tr>
-                            <td colSpan="6" style={{ background:'#f8fafc', padding:'16px 20px' }}>
-
-                              {/* Registry SPID */}
+                            <td colSpan="6" style={{ background: '#f8fafc', padding: '16px 20px' }}>
                               {file.entityID && registry?.exists && (
-                                <div style={{ marginBottom:12, padding:'10px 14px', borderRadius:6,
-                                  background:'#ecfdf3', borderLeft:'4px solid #16a34a', color:'#166534', fontSize:'0.85rem',
-                                  display:'flex', alignItems:'center', gap:12 }}>
+                                <div
+                                  style={{
+                                    marginBottom: 12,
+                                    padding: '10px 14px',
+                                    borderRadius: 6,
+                                    background: '#ecfdf3',
+                                    borderLeft: '4px solid #16a34a',
+                                    color: '#166534',
+                                    fontSize: '0.85rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 12
+                                  }}
+                                >
                                   <span>✅ EntityID presente nel registro SPID</span>
                                   {registry.registry_link && (
-                                    <a href={registry.registry_link} target="_blank" rel="noopener noreferrer"
+                                    <a
+                                      href={registry.registry_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                       onClick={e => e.stopPropagation()}
-                                      style={{ color:'#15803d', fontWeight:600, textDecoration:'none' }}>
+                                      style={{ color: '#15803d', fontWeight: 600, textDecoration: 'none' }}
+                                    >
                                       🔗 Scheda registro
                                     </a>
                                   )}
                                 </div>
                               )}
+
                               {file.entityID && registry && !registry.exists && (
-                                <div style={{ marginBottom:12, padding:'10px 14px', borderRadius:6,
-                                  background:'#fef2f2', borderLeft:'4px solid #dc2626', color:'#991b1b', fontSize:'0.85rem' }}>
+                                <div
+                                  style={{
+                                    marginBottom: 12,
+                                    padding: '10px 14px',
+                                    borderRadius: 6,
+                                    background: '#fef2f2',
+                                    borderLeft: '4px solid #dc2626',
+                                    color: '#991b1b',
+                                    fontSize: '0.85rem'
+                                  }}
+                                >
                                   ❌ EntityID non trovato nel registro SPID
                                 </div>
                               )}
+
                               {file.entityID && !registry && (
-                                <div style={{ marginBottom:12, padding:'10px 14px', borderRadius:6,
-                                  background:'#f1f5f9', borderLeft:'4px solid #94a3b8', color:'#64748b', fontSize:'0.85rem' }}>
+                                <div
+                                  style={{
+                                    marginBottom: 12,
+                                    padding: '10px 14px',
+                                    borderRadius: 6,
+                                    background: '#f1f5f9',
+                                    borderLeft: '4px solid #94a3b8',
+                                    color: '#64748b',
+                                    fontSize: '0.85rem'
+                                  }}
+                                >
                                   ⟳ Verifica registro SPID in corso…
                                 </div>
                               )}
 
-                              {/* Tabella dettaglio */}
-                              <table style={{ width:'100%', fontSize:'0.85rem', borderCollapse:'collapse', marginBottom:12 }}>
+                              <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse', marginBottom: 12 }}>
                                 <tbody>
                                   {[
-                                    ['Nome file',
-                                      !registry?.exists
-                                        ? <button onClick={e=>{e.stopPropagation();handleViewXml(file.filename);}}
-                                            style={{ background:'none', border:'none', color:'#2563eb', cursor:'pointer', textDecoration:'underline', padding:0, fontSize:'0.85rem' }}>
-                                            {file.filename}
-                                          </button>
-                                        : file.filename
+                                    [
+                                      'Nome file',
+                                      !registry?.exists ? (
+                                        <button
+                                          onClick={e => {
+                                            e.stopPropagation();
+                                            handleViewXml(file.filename);
+                                          }}
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#2563eb',
+                                            cursor: 'pointer',
+                                            textDecoration: 'underline',
+                                            padding: 0,
+                                            fontSize: '0.85rem'
+                                          }}
+                                        >
+                                          {file.filename}
+                                        </button>
+                                      ) : (
+                                        file.filename
+                                      )
                                     ],
-                                    ['EntityID',       file.entityID       || 'N/D'],
+                                    ['EntityID', file.entityID || 'N/D'],
                                     ['Organizzazione', file.organizationName || 'N/D'],
-                                    ['Data creazione', file.creationDate
-                                      ? new Date(registry?.createDate || file.creationDate).toLocaleString('it-IT') : 'N/D'],
-                                    ['Data modifica',  file.modificationDate
-                                      ? new Date(registry?.lastUpdateDate || file.modificationDate).toLocaleString('it-IT') : 'N/D'],
-                                    ['Dimensione',     file.size ? `${(file.size/1024).toFixed(1)} KB` : 'N/D'],
-                                  ].map(([k, v]) => (
-                                    <tr key={k}>
-                                      <th style={{ padding:'5px 16px 5px 0', fontWeight:600, color:'#374151', width:150, verticalAlign:'top' }}>{k}</th>
-                                      <td style={{ padding:'5px 0', color:'#1e293b' }}>{v}</td>
+                                    [
+                                      'Data creazione',
+                                      file.creationDate
+                                        ? new Date(registry?.createDate || file.creationDate).toLocaleString('it-IT')
+                                        : 'N/D'
+                                    ],
+                                    [
+                                      'Data modifica',
+                                      file.modificationDate
+                                        ? new Date(registry?.lastUpdateDate || file.modificationDate).toLocaleString('it-IT')
+                                        : 'N/D'
+                                    ],
+                                    ['Dimensione', file.size ? `${(file.size / 1024).toFixed(1)} KB` : 'N/D']
+                                  ].map((row, i) => (
+                                    <tr key={`${file.filename}-detail-${i}`}>
+                                      <th
+                                        style={{
+                                          padding: '5px 16px 5px 0',
+                                          fontWeight: 600,
+                                          color: '#374151',
+                                          width: 150,
+                                          verticalAlign: 'top'
+                                        }}
+                                      >
+                                        {Array.isArray(row) ? row[0] : 'N/D'}
+                                      </th>
+                                      <td style={{ padding: '5px 0', color: '#1e293b' }}>
+                                        {Array.isArray(row) ? row[1] : 'N/D'}
+                                      </td>
                                     </tr>
                                   ))}
+
+                                  <tr>
+                                    <th
+                                      style={{
+                                        padding: '5px 16px 5px 0',
+                                        fontWeight: 600,
+                                        color: '#374151',
+                                        width: 150,
+                                        verticalAlign: 'top'
+                                      }}
+                                    >
+                                      Certificato di sigillo
+                                    </th>
+                                    <td style={{ padding: '5px 0', color: '#1e293b' }}>
+                                      {certLoading && <span>Verifica certificato in corso...</span>}
+
+                                      {!certLoading && certInfo?.certificate && (
+                                        <details
+                                          style={{
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '6px',
+                                            padding: '8px',
+                                            marginTop: '4px'
+                                          }}
+                                        >
+                                          <summary style={{ cursor: 'pointer', fontWeight: 600, listStyle: 'none' }}>
+                                            {certInfo.valid ? '✅ Certificato valido' : '❌ Certificato non valido'}
+                                          </summary>
+
+                                          <div style={{ marginTop: '8px', paddingLeft: '12px', fontSize: '0.82rem' }}>
+                                            <div><strong>Not Before:</strong> {certInfo.certificate.notBefore || 'N/D'}</div>
+                                            <div><strong>Not After:</strong> {certInfo.certificate.notAfter || 'N/D'}</div>
+                                            <div><strong>Subject:</strong> {certInfo.certificate.subject || 'N/D'}</div>
+                                            <div><strong>Issuer:</strong> {certInfo.certificate.issuer || 'N/D'}</div>
+
+                                            {certErrors.length > 0 && (
+                                              <div style={{ marginTop: '6px', color: '#991b1b' }}>
+                                                <strong>Errori:</strong>
+                                                <ul style={{ margin: '2px 0', paddingLeft: '16px' }}>
+                                                  {certErrors.map((e, i) => (
+                                                    <li key={i}>{typeof e === 'string' ? e : JSON.stringify(e)}</li>
+                                                  ))}
+                                                </ul>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </details>
+                                      )}
+
+                                      {!certLoading && certInfo?.error && (
+                                        <span style={{ color: '#991b1b' }}>{certInfo.error}</span>
+                                      )}
+
+                                      {!certLoading && !certInfo && <span>N/D</span>}
+                                    </td>
+                                  </tr>
                                 </tbody>
                               </table>
 
-                              {/* Risultato validazione */}
                               {isValidating && (
-                                <div style={{ padding:10, borderRadius:6, background:'#f1f5f9', color:'#64748b', fontSize:'0.85rem' }}>
+                                <div style={{ padding: 10, borderRadius: 6, background: '#f1f5f9', color: '#64748b', fontSize: '0.85rem' }}>
                                   ⟳ Validazione in corso…
                                 </div>
                               )}
+
                               {!isValidating && file.validation && (
                                 <>
-                                  {file.validation.errors?.length > 0 && (
-                                    <div style={{ marginBottom:8, padding:12, borderRadius:6, background:'#fef2f2', borderLeft:'4px solid #dc2626' }}>
-                                      <strong style={{ color:'#991b1b', display:'block', marginBottom:6 }}>
-                                        ❌ Errori di validazione ({file.validation.errors.length})
+                                  {validationErrors.length > 0 && (
+                                    <div
+                                      style={{
+                                        marginBottom: 8,
+                                        padding: 12,
+                                        borderRadius: 6,
+                                        background: '#fef2f2',
+                                        borderLeft: '4px solid #dc2626'
+                                      }}
+                                    >
+                                      <strong style={{ color: '#991b1b', display: 'block', marginBottom: 6 }}>
+                                        ❌ Errori di validazione ({validationErrors.length})
                                       </strong>
-                                      <ul style={{ margin:0, paddingLeft:20 }}>
-                                        {file.validation.errors.map((e,i) => (
-                                          <li key={i} style={{ fontSize:'0.82rem', color:'#991b1b', marginBottom:3 }}>
-                                            {typeof e === 'object' ? `[${e.testId||e.test_id}] ${e.message}` : e}
+                                      <ul style={{ margin: 0, paddingLeft: 20 }}>
+                                        {validationErrors.map((e, i) => (
+                                          <li key={i} style={{ fontSize: '0.82rem', color: '#991b1b', marginBottom: 3 }}>
+                                            {typeof e === 'object'
+                                              ? `[${e.testId || e.test_id || e.testid || 'N/D'}] ${e.message || JSON.stringify(e)}`
+                                              : e}
                                           </li>
                                         ))}
                                       </ul>
                                     </div>
                                   )}
-                                  {file.validation.warnings?.length > 0 && (
-                                    <div style={{ marginBottom:8, padding:12, borderRadius:6, background:'#fffbeb', borderLeft:'4px solid #d97706' }}>
-                                      <strong style={{ color:'#92400e', display:'block', marginBottom:6 }}>
-                                        ⚠️ Warning ({file.validation.warnings.length})
+
+                                  {validationWarnings.length > 0 && (
+                                    <div
+                                      style={{
+                                        marginBottom: 8,
+                                        padding: 12,
+                                        borderRadius: 6,
+                                        background: '#fffbeb',
+                                        borderLeft: '4px solid #d97706'
+                                      }}
+                                    >
+                                      <strong style={{ color: '#92400e', display: 'block', marginBottom: 6 }}>
+                                        ⚠️ Warning ({validationWarnings.length})
                                       </strong>
-                                      <ul style={{ margin:0, paddingLeft:20 }}>
-                                        {file.validation.warnings.map((w,i) => (
-                                          <li key={i} style={{ fontSize:'0.82rem', color:'#92400e', marginBottom:3 }}>
-                                            {typeof w === 'object' ? `[${w.testId||w.test_id}] ${w.message}` : w}
+                                      <ul style={{ margin: 0, paddingLeft: 20 }}>
+                                        {validationWarnings.map((w, i) => (
+                                          <li key={i} style={{ fontSize: '0.82rem', color: '#92400e', marginBottom: 3 }}>
+                                            {typeof w === 'object'
+                                              ? `[${w.testId || w.test_id || w.testid || 'N/D'}] ${w.message || JSON.stringify(w)}`
+                                              : w}
                                           </li>
                                         ))}
                                       </ul>
                                     </div>
                                   )}
-                                  {!file.validation.errors?.length && !file.validation.warnings?.length && (
-                                    <div style={{ padding:10, borderRadius:6, background:'#ecfdf3', borderLeft:'4px solid #16a34a', color:'#166534', fontSize:'0.85rem' }}>
+
+                                  {validationErrors.length === 0 && validationWarnings.length === 0 && (
+                                    <div
+                                      style={{
+                                        padding: 10,
+                                        borderRadius: 6,
+                                        background: '#ecfdf3',
+                                        borderLeft: '4px solid #16a34a',
+                                        color: '#166534',
+                                        fontSize: '0.85rem'
+                                      }}
+                                    >
                                       ✅ Nessun errore o warning di validazione.
                                     </div>
                                   )}
                                 </>
                               )}
+
                               {!isValidating && !file.validation && (
-                                <div style={{ padding:10, borderRadius:6, background:'#f1f5f9', color:'#94a3b8', fontSize:'0.85rem' }}>
+                                <div style={{ padding: 10, borderRadius: 6, background: '#f1f5f9', color: '#94a3b8', fontSize: '0.85rem' }}>
                                   Validazione non ancora disponibile.
                                 </div>
                               )}
-
                             </td>
                           </tr>
                         )}

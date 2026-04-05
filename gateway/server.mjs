@@ -11,6 +11,7 @@ const GITHUB_SVC = process.env.GITHUB_SERVICE_URL     || 'http://localhost:4003'
 const PR_SVC     = process.env.PR_SERVICE_URL         || 'http://localhost:4004';
 const BATCH_SVC  = process.env.BATCH_SERVICE_URL      || 'http://localhost:4005';
 const BACKOFFICE_SVC = process.env.BACKOFFICE_SERVICE_URL || 'http://localhost:4006';
+const CERT_SVC = process.env.CERTIFICATE_SERVICE_URL || 'http://localhost:4007';
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
@@ -43,11 +44,12 @@ const proxy = (target, stripPrefix) =>
 
 // Mappa path → ruolo minimo richiesto
 const ROUTE_ROLES = {
-  '/api/files':    'viewer',
-  '/api/validate': 'viewer',
-  '/api/github':   'admin',
-  '/api/pr':       'operator',
-  '/api/batch':    'operator',
+  '/api/files':      'viewer',
+  '/api/validate':   'viewer',
+  '/api/certificates':'viewer',
+  '/api/github':     'admin',
+  '/api/pr':         'operator',
+  '/api/batch':      'operator',
 };
 
 
@@ -158,6 +160,7 @@ const batchProxy    = await makeProxy(BATCH_SVC,      '/api/batch');
 const authProxy     = await makeProxy(BACKOFFICE_SVC, '/api/auth',  '/auth');
 const usersProxy    = await makeProxy(BACKOFFICE_SVC, '/api/users', '/users');
 const auditProxy    = await makeProxy(BACKOFFICE_SVC, '/api/audit', '/audit');
+const certProxy     = await makeProxy(CERT_SVC,       '/api/certificates');
 
 
 app.use("/api/files",    filesProxy);
@@ -168,17 +171,19 @@ app.use("/api/batch",    batchProxy);
 app.use("/api/auth",     authProxy);
 app.use("/api/users",    usersProxy);
 app.use("/api/audit",    auditProxy);
+app.use("/api/certificates", certProxy);
 
 // Health aggregato
 app.get('/health', async (req, res) => {
   const services = {
-    'file-service':       `${FILE_SVC}/health`,
-    'validation-service': `${VALID_SVC}/health`,
-    'github-service':     `${GITHUB_SVC}/health`,
-    'pr-service':         `${PR_SVC}/health`,
-    'batch-service':      `${BATCH_SVC}/health`,
-    'backoffice-service': `${BACKOFFICE_SVC}/health`
-  };
+  'file-service':        `${FILE_SVC}/health`,
+  'validation-service':  `${VALID_SVC}/health`,
+  'certificate-service': `${CERT_SVC}/health`,
+  'github-service':      `${GITHUB_SVC}/health`,
+  'pr-service':          `${PR_SVC}/health`,
+  'batch-service':       `${BATCH_SVC}/health`,
+  'backoffice-service':  `${BACKOFFICE_SVC}/health`
+};
 
   const axios = (await import('axios')).default;
   const statuses = await Promise.allSettled(
@@ -212,5 +217,6 @@ app.listen(PORT, () => {
   console.log(`   /api/pr      → ${PR_SVC}`);
   console.log(`   /api/batch   → ${BATCH_SVC}`);
   console.log(`   /api/auth    → ${BACKOFFICE_SVC}`);
+  console.log(`   /api/certificates → ${CERT_SVC}`);
   console.log('='.repeat(50));
 });

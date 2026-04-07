@@ -3,7 +3,6 @@ import cors         from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import http from 'http';
 
-
 const PORT       = process.env.GATEWAY_PORT           || 8080;
 const FILE_SVC   = process.env.FILE_SERVICE_URL       || 'http://localhost:4001';
 const VALID_SVC  = process.env.VALIDATION_SERVICE_URL || 'http://localhost:4002';
@@ -18,8 +17,7 @@ const ALLOWED_ORIGINS = [
   'https://spid-metadata-microservices.vercel.app'
 ];
 
-const app = express();
-app.use(cors({
+const corsOptions = {
   origin: (origin, cb) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
     cb(new Error(`CORS bloccato per origin: ${origin}`));
@@ -27,34 +25,45 @@ app.use(cors({
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
 
-const proxy = (target, stripPrefix) =>
-  createProxyMiddleware({
-    target,
-    changeOrigin: true,
-    pathFilter: '**',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const newPath = req.originalUrl.replace(stripPrefix, '') || '/';
-        proxyReq.path = newPath;
-      }
-    }
+const app = express();
+
+// ✅ CORS e preflight OPTIONS — PRIMA DI TUTTO
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));  // ← stesso corsOptions, non cors() vuoto
+
+// Upload file — pipe diretto
+app.use('/api/files/upload', (req, res) => {
+  const target = new URL(FILE_SVC);
+  const options = {
+    hostname: target.hostname,
+    port: target.port || 80,
+    path: '/upload',
+    method: req.method,
+    headers: { ...req.headers, host: target.host },
+  };
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
   });
+  proxyReq.on('error', (e) => {
+    res.status(502).json({ error: 'Upload service non raggiungibile', detail: e.message });
+  });
+  req.pipe(proxyReq);
+});
 
-app.options('*', cors());  // ← preflight handler
+app.use(express.json());
 
 // Mappa path → ruolo minimo richiesto
 const ROUTE_ROLES = {
-  '/api/files':      'viewer',
-  '/api/validate':   'viewer',
+  '/api/files':       'viewer',
+  '/api/validate':    'viewer',
   '/api/certificates':'viewer',
-  '/api/github':     'admin',
-  '/api/pr':         'operator',
-  '/api/batch':      'operator',
+  '/api/github':      'admin',
+  '/api/pr':          'operator',
+  '/api/batch':       'operator',
 };
-
-
 
 // Middleware auth centralizzato
 async function authMiddleware(req, res, next) {
@@ -97,34 +106,8 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-// Upload file — pipe diretto (bypassa express.json e proxy manuale)
-app.use('/api/files/upload', (req, res) => {
-  const target = new URL(FILE_SVC);
-  const options = {
-    hostname: target.hostname,
-    port: target.port || 80,
-    path: '/upload',
-    method: req.method,
-    headers: {
-      ...req.headers,
-      host: target.host,
-    },
-  };
-  const proxyReq = http.request(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res);
-  });
-  proxyReq.on('error', (e) => {
-    res.status(502).json({ error: 'Upload service non raggiungibile', detail: e.message });
-  });
-  req.pipe(proxyReq);
-});
-
-
-app.use(express.json());
 app.use(authMiddleware);
 
-// Proxy manuale con axios (compatibile con http-proxy-middleware v3)
 async function makeProxy(targetBase, stripPrefix, targetPrefix = '') {
   return async function(req, res) {
     const axios = (await import('axios')).default;
@@ -153,7 +136,6 @@ async function makeProxy(targetBase, stripPrefix, targetPrefix = '') {
   };
 }
 
-
 const filesProxy    = await makeProxy(FILE_SVC,       '/api/files');
 const validateProxy = await makeProxy(VALID_SVC,      '/api/validate');
 const githubProxy   = await makeProxy(GITHUB_SVC,     '/api/github');
@@ -164,28 +146,26 @@ const usersProxy    = await makeProxy(BACKOFFICE_SVC, '/api/users', '/users');
 const auditProxy    = await makeProxy(BACKOFFICE_SVC, '/api/audit', '/audit');
 const certProxy     = await makeProxy(CERT_SVC,       '/api/certificates');
 
+app.use('/api/files',        filesProxy);
+app.use('/api/validate',     validateProxy);
+app.use('/api/github',       githubProxy);
+app.use('/api/pr',           prProxy);
+app.use('/api/batch',        batchProxy);
+app.use('/api/auth',         authProxy);
+app.use('/api/users',        usersProxy);
+app.use('/api/audit',        auditProxy);
+app.use('/api/certificates', certProxy);
 
-app.use("/api/files",    filesProxy);
-app.use("/api/validate", validateProxy);
-app.use("/api/github",   githubProxy);
-app.use("/api/pr",       prProxy);
-app.use("/api/batch",    batchProxy);
-app.use("/api/auth",     authProxy);
-app.use("/api/users",    usersProxy);
-app.use("/api/audit",    auditProxy);
-app.use("/api/certificates", certProxy);
-
-// Health aggregato
 app.get('/health', async (req, res) => {
   const services = {
-  'file-service':        `${FILE_SVC}/health`,
-  'validation-service':  `${VALID_SVC}/health`,
-  'certificate-service': `${CERT_SVC}/health`,
-  'github-service':      `${GITHUB_SVC}/health`,
-  'pr-service':          `${PR_SVC}/health`,
-  'batch-service':       `${BATCH_SVC}/health`,
-  'backoffice-service':  `${BACKOFFICE_SVC}/health`
-};
+    'file-service':        `${FILE_SVC}/health`,
+    'validation-service':  `${VALID_SVC}/health`,
+    'certificate-service': `${CERT_SVC}/health`,
+    'github-service':      `${GITHUB_SVC}/health`,
+    'pr-service':          `${PR_SVC}/health`,
+    'batch-service':       `${BATCH_SVC}/health`,
+    'backoffice-service':  `${BACKOFFICE_SVC}/health`
+  };
 
   const axios = (await import('axios')).default;
   const statuses = await Promise.allSettled(
@@ -208,17 +188,16 @@ app.get('/health', async (req, res) => {
 app.use((_, res) => res.status(404).json({ error: 'Endpoint non trovato' }));
 
 app.listen(PORT, () => {
-  console.log('');
   console.log('='.repeat(50));
   console.log('🌐 SPID Metadata App — API Gateway');
   console.log('='.repeat(50));
   console.log(`📡 Gateway → http://localhost:${PORT}`);
-  console.log(`   /api/files   → ${FILE_SVC}`);
-  console.log(`   /api/validate→ ${VALID_SVC}`);
-  console.log(`   /api/github  → ${GITHUB_SVC}`);
-  console.log(`   /api/pr      → ${PR_SVC}`);
-  console.log(`   /api/batch   → ${BATCH_SVC}`);
-  console.log(`   /api/auth    → ${BACKOFFICE_SVC}`);
+  console.log(`   /api/files        → ${FILE_SVC}`);
+  console.log(`   /api/validate     → ${VALID_SVC}`);
+  console.log(`   /api/github       → ${GITHUB_SVC}`);
+  console.log(`   /api/pr           → ${PR_SVC}`);
+  console.log(`   /api/batch        → ${BATCH_SVC}`);
+  console.log(`   /api/auth         → ${BACKOFFICE_SVC}`);
   console.log(`   /api/certificates → ${CERT_SVC}`);
   console.log('='.repeat(50));
 });

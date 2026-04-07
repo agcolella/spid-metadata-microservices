@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
+// const BASE_URL = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
+import API_BASE from '../config';   // aggiusta il path se Login.jsx è in /components/
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -14,7 +15,7 @@ function Login() {
     setError('');
     setLoading(true);
     try {
-      const { data } = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
+      const { data } = await axios.post(`${API_BASE}/api/auth/login`, { username, password });
       localStorage.setItem('spid_token', data.accessToken);
       window.location.href = '/';
     } catch (err) {

@@ -15,7 +15,7 @@ const CERT_SVC = process.env.CERTIFICATE_SERVICE_URL || 'http://localhost:4007';
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
-  'https://spid-metadata-microservices.vercel.app/'
+  'https://spid-metadata-microservices.vercel.app'
 ];
 
 const app = express();
@@ -25,7 +25,8 @@ app.use(cors({
     cb(new Error(`CORS bloccato per origin: ${origin}`));
   },
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 const proxy = (target, stripPrefix) =>
@@ -41,6 +42,7 @@ const proxy = (target, stripPrefix) =>
     }
   });
 
+app.options('*', cors());  // ← preflight handler
 
 // Mappa path → ruolo minimo richiesto
 const ROUTE_ROLES = {

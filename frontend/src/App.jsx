@@ -6,7 +6,7 @@ import { PRPreviewModal } from './components/PRPreviewModal';
 import { ProgressTracker } from './components/ProgressTracker';
 import { ValidationBadge } from './components/ValidationBadge';
 
-const API_BASE  = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_BASE  = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'spid_token';
 const LS_KEY    = 'spid-pr-history';
 

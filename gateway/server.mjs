@@ -15,7 +15,7 @@ const CERT_SVC = process.env.CERTIFICATE_SERVICE_URL || 'http://localhost:4007';
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
-  'https://spid-gateway-m51i.onrender.com/'
+  'https://spid-metadata-microservices.vercel.app/'
 ];
 
 const app = express();

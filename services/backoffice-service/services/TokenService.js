@@ -5,7 +5,7 @@ import db from '../db.js';
 
 const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET  || 'change-me-access-secret';
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'change-me-refresh-secret';
-const ACCESS_EXP     = process.env.JWT_ACCESS_EXP     || '15m';
+const ACCESS_EXP     = process.env.JWT_ACCESS_EXP     || '8h';
 const REFRESH_EXP    = process.env.JWT_REFRESH_EXP    || '7d';
 
 export class TokenService {

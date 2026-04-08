@@ -25,6 +25,9 @@ const API = {
   createPR:       `${API_BASE}/api/pr/create`,
   prStatus:       (n) => `${API_BASE}/api/pr/status/${n}`,
   login:          `${API_BASE}/api/auth/login`,
+  users:         `${API_BASE}/api/users`,
+  userById:      (id) => `${API_BASE}/api/users/${id}`,
+  userResetPwd:  (id) => `${API_BASE}/api/users/${id}/reset-password`,
 };
 
 axios.interceptors.response.use(
@@ -44,6 +47,16 @@ function useAuth() {
   const login  = (t) => { localStorage.setItem(TOKEN_KEY, t); setToken(t); };
   const logout = ()  => { localStorage.removeItem(TOKEN_KEY); setToken(null); };
   return { token, login, logout };
+}
+
+// Funzione helper — aggiungi dopo la riga TOKEN_KEY
+function getUserRole() {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || null;
+  } catch { return null; }
 }
 
 // ─── LOGIN ───────────────────────────────────────────────
@@ -132,7 +145,10 @@ function MainPage() {
   const [xmlModalContent, setXmlModalContent]     = useState(null);
   const [sectionsCollapsed, setSectionsCollapsed] = useState({ upload:false, files:false });
   const [validFilesForPR, setValidFilesForPR] = useState([]);
-
+  // Aggiungi dopo "const [validFilesForPR, setValidFilesForPR] = useState([]);"
+  const [activePage, setActivePage] = useState('main');
+  const userRole = getUserRole();
+  
   const fileInputRef = useRef();
   const dirInputRef  = useRef();
   const prSteps = ['Validazione','Creazione Branch','Upload File','Creazione Commit','Apertura PR'];
@@ -476,6 +492,33 @@ console.log('pullRequests isArray', Array.isArray(pullRequests), pullRequests);
       <div style={S.sidebar}>
         <div style={{ fontSize:'1.1rem', fontWeight:700 }}>📁 SPID Metadata</div>
 
+        {/* Navigazione pagine */}
+        <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:8 }}>
+          <button
+            onClick={() => setActivePage('main')}
+            style={{
+              background: activePage === 'main' ? '#3b82f6' : 'transparent',
+              color: '#f1f5f9', border: 'none', borderRadius: 6,
+              padding: '8px 10px', cursor: 'pointer', textAlign: 'left',
+              fontSize: '0.85rem', fontWeight: activePage === 'main' ? 700 : 400
+            }}
+          >
+            🏠 Dashboard
+          </button>
+          {userRole === 'admin' && (
+            <button
+              onClick={() => setActivePage('users')}
+              style={{
+                background: activePage === 'users' ? '#3b82f6' : 'transparent',
+                color: '#f1f5f9', border: 'none', borderRadius: 6,
+                padding: '8px 10px', cursor: 'pointer', textAlign: 'left',
+                fontSize: '0.85rem', fontWeight: activePage === 'users' ? 700 : 400
+              }}
+            >
+              👥 Gestione Utenti
+            </button>
+          )}
+        </div>
         {githubValid === false && (
           <div style={{ background:'#7f1d1d', borderRadius:6, padding:'8px 10px', fontSize:'0.8rem' }}>⚠️ GitHub non configurato</div>
         )}
@@ -698,7 +741,13 @@ console.log('pullRequests isArray', Array.isArray(pullRequests), pullRequests);
       </div>
 
       {/* ══ MAIN CONTENT ═════════════════════════════════ */}
-      <div style={S.main}>
+      {activePage === 'users' && userRole === 'admin' && (
+        <div style={S.main}>
+          <UserManagement />
+        </div>
+      )}
+
+      {activePage === 'main' && <div style={S.main}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <h2 style={{ margin:0 }}>Dettagli File ({sortedFiles.length})</h2>
           <button style={S.btn('#f1f5f9','#374151')} onClick={loadFiles}>🔄 Aggiorna</button>
@@ -1078,7 +1127,7 @@ console.log('pullRequests isArray', Array.isArray(pullRequests), pullRequests);
             )}
           </>
         )}
-      </div>
+      </div>}
 
       {/* Modal XML viewer */}
       {xmlModalContent && (

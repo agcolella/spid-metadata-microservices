@@ -124,7 +124,7 @@ function App() {
 // ─── MAIN PAGE ───────────────────────────────────────────
 
 // ─── GESTIONE UTENTI ────────────────────────────────────────────────────
-const API_USERS_BASE = 'http://localhost:4006/users';
+const API_USERS_BASE = (process.env.REACT_APP_BACKOFFICE_URL || 'http://localhost:4006') + '/users';
 
 function ModalOverlay({ children, onClose }) {
   return (

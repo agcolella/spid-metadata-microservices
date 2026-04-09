@@ -29,6 +29,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Risponde subito ai preflight CORS senza autenticazione
+app.options('*', cors());
+
 // ── Health ────────────────────────────────────────────────
 app.get('/health', (_, res) =>
   res.json({ service: 'backoffice-service', status: 'ok', port: PORT })

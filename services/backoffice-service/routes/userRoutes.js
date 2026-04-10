@@ -1,3 +1,4 @@
+// services/backoffice-service/routes/userRoutes.js
 import { Router } from 'express';
 import { UserService }  from '../services/UserService.js';
 import { TokenService } from '../services/TokenService.js';
@@ -14,9 +15,9 @@ router.use(authenticate, requireAdmin);
 const ip = (req) => req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress;
 const ua = (req) => req.headers['user-agent'];
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { page = 1, limit = 20, role, active, search } = req.query;
-  const result = userService.list({
+  const result = await userService.list({
     page:   parseInt(page),
     limit:  parseInt(limit),
     role,
@@ -26,17 +27,17 @@ router.get('/', (req, res) => {
   res.json(result);
 });
 
-router.get('/:id', (req, res) => {
-  const user = userService.findById(req.params.id);
+router.get('/:id', async (req, res) => {
+  const user = await userService.findById(req.params.id);
   if (!user) return res.status(404).json({ error: 'Utente non trovato' });
   res.json(user);
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const user = userService.create(req.body);
+    const user = await userService.create(req.body);
 
-    auditService.log({
+    await auditService.log({
       userId: req.user.sub, username: req.user.username,
       action: 'create_user',
       resource: user.id,
@@ -50,14 +51,14 @@ router.post('/', (req, res) => {
   }
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     if (req.params.id === req.user.sub && req.body.active === false)
       return res.status(400).json({ error: 'Non puoi disattivare il tuo stesso account' });
 
-    const user = userService.update(req.params.id, req.body);
+    const user = await userService.update(req.params.id, req.body);
 
-    auditService.log({
+    await auditService.log({
       userId: req.user.sub, username: req.user.username,
       action: 'update_user',
       resource: req.params.id,
@@ -71,15 +72,15 @@ router.put('/:id', (req, res) => {
   }
 });
 
-router.post('/:id/reset-password', (req, res) => {
+router.post('/:id/reset-password', async (req, res) => {
   try {
     const { newPassword } = req.body;
     if (!newPassword) return res.status(400).json({ error: 'newPassword obbligatoria' });
 
-    userService.resetPassword(req.params.id, newPassword);
-    tokenService.revokeAllUserTokens(req.params.id);
+    await userService.resetPassword(req.params.id, newPassword);
+    await tokenService.revokeAllUserTokens(req.params.id);
 
-    auditService.log({
+    await auditService.log({
       userId: req.user.sub, username: req.user.username,
       action: 'reset_password', resource: req.params.id,
       ip: ip(req), userAgent: ua(req)
@@ -91,15 +92,15 @@ router.post('/:id/reset-password', (req, res) => {
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     if (req.params.id === req.user.sub)
       return res.status(400).json({ error: 'Non puoi eliminare il tuo stesso account' });
 
-    userService.delete(req.params.id);
-    tokenService.revokeAllUserTokens(req.params.id);
+    await userService.delete(req.params.id);
+    await tokenService.revokeAllUserTokens(req.params.id);
 
-    auditService.log({
+    await auditService.log({
       userId: req.user.sub, username: req.user.username,
       action: 'delete_user', resource: req.params.id,
       ip: ip(req), userAgent: ua(req)

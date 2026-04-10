@@ -1,20 +1,17 @@
 // services/backoffice-service/db.js
-import { DatabaseSync } from 'node:sqlite';  // ← built-in Node 22+
-import bcrypt   from 'bcryptjs';
-import path     from 'path';
-import { fileURLToPath } from 'url';
+import { createClient } from '@libsql/client';
+import bcrypt from 'bcryptjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH   = process.env.DB_PATH || path.join(__dirname, 'backoffice.db');
+const isLocal = !process.env.TURSO_DATABASE_URL;
 
-const db = new DatabaseSync(DB_PATH);
-
-// Abilita WAL e foreign keys
-db.exec('PRAGMA journal_mode = WAL');
-db.exec('PRAGMA foreign_keys = ON');
+const db = createClient(
+  isLocal
+    ? { url: `file:${process.env.DB_PATH || './backoffice.db'}` }
+    : { url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN }
+);
 
 // ── Schema ────────────────────────────────────────────────
-db.exec(`
+await db.executeMultiple(`
   CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,
     username      TEXT UNIQUE NOT NULL,
@@ -56,15 +53,19 @@ db.exec(`
 `);
 
 // ── Seed admin ────────────────────────────────────────────
-const adminExists = db.prepare(`SELECT id FROM users WHERE username = 'admin'`).get();
-if (!adminExists) {
+const { rows } = await db.execute(`SELECT id FROM users WHERE username = 'admin'`);
+if (!rows.length) {
   const { v4: uuidv4 } = await import('uuid');
   const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Admin@1234!', 12);
-  db.prepare(`
-    INSERT INTO users (id, username, email, password_hash, role)
-    VALUES (?, 'admin', 'admin@spid-metadata.local', ?, 'admin')
-  `).run(uuidv4(), hash);
+  await db.execute({
+    sql: `INSERT INTO users (id, username, email, password_hash, role)
+          VALUES (?, 'admin', 'admin@spid-metadata.local', ?, 'admin')`,
+    args: [uuidv4(), hash]
+  });
   console.log('👤 Utente admin creato (cambia la password al primo accesso!)');
 }
+
+if (isLocal) console.log('🗄️  DB locale (libsql file)');
+else         console.log('☁️  DB Turso cloud');
 
 export default db;

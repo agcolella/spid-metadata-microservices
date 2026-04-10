@@ -1,3 +1,4 @@
+// services/backoffice-service/services/TokenService.js
 import jwt    from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,18 +19,18 @@ export class TokenService {
     );
   }
 
-  generateRefreshToken(userId) {
-    const raw   = uuidv4();
-    const hash  = bcrypt.hashSync(raw, 10);
-    const expMs = REFRESH_EXP.endsWith('d')
+  async generateRefreshToken(userId) {
+    const raw    = uuidv4();
+    const hash   = bcrypt.hashSync(raw, 10);
+    const expMs  = REFRESH_EXP.endsWith('d')
       ? parseInt(REFRESH_EXP) * 86400000
       : 604800000;
     const expiresAt = new Date(Date.now() + expMs).toISOString();
 
-    db.prepare(`
-      INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
-      VALUES (?, ?, ?, ?)
-    `).run(uuidv4(), userId, hash, expiresAt);
+    await db.execute({
+      sql:  `INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)`,
+      args: [uuidv4(), userId, hash, expiresAt]
+    });
 
     return raw;
   }
@@ -38,29 +39,33 @@ export class TokenService {
     return jwt.verify(token, ACCESS_SECRET);
   }
 
-  verifyRefreshToken(userId, rawToken) {
-    const rows = db.prepare(`
-      SELECT * FROM refresh_tokens
-      WHERE user_id = ? AND revoked = 0 AND expires_at > datetime('now')
-    `).all(userId);
+  async verifyRefreshToken(userId, rawToken) {
+    const { rows } = await db.execute({
+      sql:  `SELECT * FROM refresh_tokens WHERE user_id = ? AND revoked = 0 AND expires_at > datetime('now')`,
+      args: [userId]
+    });
 
     for (const row of rows) {
-      if (bcrypt.compareSync(rawToken, row.token_hash)) {
-        return row;
-      }
+      if (bcrypt.compareSync(rawToken, row.token_hash)) return row;
     }
     return null;
   }
 
-  revokeRefreshToken(tokenId) {
-    db.prepare(`UPDATE refresh_tokens SET revoked = 1 WHERE id = ?`).run(tokenId);
+  async revokeRefreshToken(tokenId) {
+    await db.execute({
+      sql:  `UPDATE refresh_tokens SET revoked = 1 WHERE id = ?`,
+      args: [tokenId]
+    });
   }
 
-  revokeAllUserTokens(userId) {
-    db.prepare(`UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?`).run(userId);
+  async revokeAllUserTokens(userId) {
+    await db.execute({
+      sql:  `UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?`,
+      args: [userId]
+    });
   }
 
-  cleanExpiredTokens() {
-    db.prepare(`DELETE FROM refresh_tokens WHERE expires_at <= datetime('now')`).run();
+  async cleanExpiredTokens() {
+    await db.execute({ sql: `DELETE FROM refresh_tokens WHERE expires_at <= datetime('now')`, args: [] });
   }
 }

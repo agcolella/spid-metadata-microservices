@@ -1,3 +1,4 @@
+// services/backoffice-service/services/UserService.js
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
@@ -19,72 +20,83 @@ function safeUser(row) {
 
 export class UserService {
 
-  findById(id) {
-    return safeUser(db.prepare(`SELECT * FROM users WHERE id = ?`).get(id));
+  async findById(id) {
+    const { rows } = await db.execute({ sql: `SELECT * FROM users WHERE id = ?`, args: [id] });
+    return safeUser(rows[0] ?? null);
   }
 
-  findByUsername(username) {
-    return db.prepare(`SELECT * FROM users WHERE username = ?`).get(username);
+  async findByUsername(username) {
+    const { rows } = await db.execute({ sql: `SELECT * FROM users WHERE username = ?`, args: [username] });
+    return rows[0] ?? null;
   }
 
-  findByEmail(email) {
-    return db.prepare(`SELECT * FROM users WHERE email = ?`).get(email);
+  async findByEmail(email) {
+    const { rows } = await db.execute({ sql: `SELECT * FROM users WHERE email = ?`, args: [email] });
+    return rows[0] ?? null;
   }
 
-  list({ page = 1, limit = 20, role, active, search } = {}) {
-    let query  = `SELECT id, username, email, role, active, created_at, updated_at, last_login FROM users WHERE 1=1`;
+  async list({ page = 1, limit = 20, role, active, search } = {}) {
+    let where = `WHERE 1=1`;
     const params = [];
 
-    if (role)   { query += ` AND role = ?`; params.push(role); }
-    if (active !== undefined) { query += ` AND active = ?`; params.push(active ? 1 : 0); }
-    if (search) { query += ` AND (username LIKE ? OR email LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+    if (role)              { where += ` AND role = ?`;                              params.push(role); }
+    if (active !== undefined) { where += ` AND active = ?`;                         params.push(active ? 1 : 0); }
+    if (search)            { where += ` AND (username LIKE ? OR email LIKE ?)`;     params.push(`%${search}%`, `%${search}%`); }
 
-    const total = db.prepare(`SELECT COUNT(*) as n FROM (${query})`).get(...params)?.n ?? 0;
-    query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-    params.push(limit, (page - 1) * limit);
+    const countSql = `SELECT COUNT(*) as n FROM users ${where}`;
+    const { rows: countRows } = await db.execute({ sql: countSql, args: params });
+    const total = Number(countRows[0]?.n ?? 0);
 
-    const users = db.prepare(query).all(...params);
+    const dataSql = `SELECT id, username, email, role, active, created_at, updated_at, last_login
+                     FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    const { rows: users } = await db.execute({ sql: dataSql, args: [...params, limit, (page - 1) * limit] });
+
     return { users, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
-  create({ username, email, password, role = 'viewer' }) {
-    if (!ROLE_NAMES.includes(role)) throw new Error(`Ruolo non valido: ${role}`);
+  async create({ username, email, password, role = 'viewer' }) {
+    if (!ROLE_NAMES.includes(role))       throw new Error(`Ruolo non valido: ${role}`);
     if (!username || !email || !password) throw new Error('username, email e password sono obbligatori');
-    if (password.length < 8) throw new Error('La password deve essere di almeno 8 caratteri');
+    if (password.length < 8)             throw new Error('La password deve essere di almeno 8 caratteri');
 
-    const existing = db.prepare(`SELECT id FROM users WHERE username = ? OR email = ?`).get(username, email);
-    if (existing) throw new Error('Username o email già in uso');
+    const { rows } = await db.execute({
+      sql:  `SELECT id FROM users WHERE username = ? OR email = ?`,
+      args: [username, email]
+    });
+    if (rows.length) throw new Error('Username o email già in uso');
 
     const id   = uuidv4();
     const hash = bcrypt.hashSync(password, 12);
 
-    db.prepare(`
-      INSERT INTO users (id, username, email, password_hash, role)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, username, email, hash, role);
+    await db.execute({
+      sql:  `INSERT INTO users (id, username, email, password_hash, role) VALUES (?, ?, ?, ?, ?)`,
+      args: [id, username, email, hash, role]
+    });
 
     return this.findById(id);
   }
 
-  update(id, { email, role, active }) {
-    const user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(id);
-    if (!user) throw new Error('Utente non trovato');
+  async update(id, { email, role, active }) {
+    const { rows } = await db.execute({ sql: `SELECT * FROM users WHERE id = ?`, args: [id] });
+    if (!rows.length) throw new Error('Utente non trovato');
     if (role && !ROLE_NAMES.includes(role)) throw new Error(`Ruolo non valido: ${role}`);
 
-    db.prepare(`
-      UPDATE users SET
-        email      = COALESCE(?, email),
-        role       = COALESCE(?, role),
-        active     = COALESCE(?, active),
-        updated_at = datetime('now')
-      WHERE id = ?
-    `).run(email ?? null, role ?? null, active !== undefined ? (active ? 1 : 0) : null, id);
+    await db.execute({
+      sql: `UPDATE users SET
+              email      = COALESCE(?, email),
+              role       = COALESCE(?, role),
+              active     = COALESCE(?, active),
+              updated_at = datetime('now')
+            WHERE id = ?`,
+      args: [email ?? null, role ?? null, active !== undefined ? (active ? 1 : 0) : null, id]
+    });
 
     return this.findById(id);
   }
 
-  changePassword(id, { oldPassword, newPassword }) {
-    const user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(id);
+  async changePassword(id, { oldPassword, newPassword }) {
+    const { rows } = await db.execute({ sql: `SELECT * FROM users WHERE id = ?`, args: [id] });
+    const user = rows[0];
     if (!user) throw new Error('Utente non trovato');
     if (!bcrypt.compareSync(oldPassword, user.password_hash))
       throw new Error('Password attuale non corretta');
@@ -92,33 +104,39 @@ export class UserService {
       throw new Error('La nuova password deve essere di almeno 8 caratteri');
 
     const hash = bcrypt.hashSync(newPassword, 12);
-    db.prepare(`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(hash, id);
-
+    await db.execute({
+      sql:  `UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+      args: [hash, id]
+    });
     return { success: true };
   }
 
-  resetPassword(id, newPassword) {
+  async resetPassword(id, newPassword) {
     if (newPassword.length < 8) throw new Error('Password troppo corta (min 8 caratteri)');
     const hash = bcrypt.hashSync(newPassword, 12);
-    db.prepare(`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(hash, id);
+    await db.execute({
+      sql:  `UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+      args: [hash, id]
+    });
     return { success: true };
   }
 
-  delete(id) {
-    const user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(id);
-    if (!user) throw new Error('Utente non trovato');
-    db.prepare(`DELETE FROM users WHERE id = ?`).run(id);
+  async delete(id) {
+    const { rows } = await db.execute({ sql: `SELECT id FROM users WHERE id = ?`, args: [id] });
+    if (!rows.length) throw new Error('Utente non trovato');
+    await db.execute({ sql: `DELETE FROM users WHERE id = ?`, args: [id] });
     return { deleted: true };
   }
 
-  updateLastLogin(id) {
-    db.prepare(`UPDATE users SET last_login = datetime('now') WHERE id = ?`).run(id);
+  async updateLastLogin(id) {
+    await db.execute({
+      sql:  `UPDATE users SET last_login = datetime('now') WHERE id = ?`,
+      args: [id]
+    });
   }
 
-  verifyCredentials(username, password) {
-    const user = this.findByUsername(username);
+  async verifyCredentials(username, password) {
+    const user = await this.findByUsername(username);
     if (!user || !user.active) return null;
     if (!bcrypt.compareSync(password, user.password_hash)) return null;
     return safeUser(user);

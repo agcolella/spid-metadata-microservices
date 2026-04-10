@@ -38,7 +38,14 @@ router.post('/login', async (req, res) => {
     action: 'login', status: 'success', ip: ip(req), userAgent: ua(req)
   });
 
-  res.json({ accessToken, refreshToken, user });
+  // Se l\'utente deve cambiare password, segnalalo nel payload
+  // Il frontend mostra la schermata di cambio password obbligatorio
+  res.json({
+    accessToken,
+    refreshToken,
+    user,
+    mustChangePassword: user.must_change_password === 1
+  });
 });
 
 router.post('/refresh', async (req, res) => {

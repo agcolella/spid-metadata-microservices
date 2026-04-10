@@ -21,6 +21,7 @@ await db.executeMultiple(`
     active        INTEGER NOT NULL DEFAULT 1,
     created_at    TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    must_change_password INTEGER NOT NULL DEFAULT 0,
     last_login    TEXT
   );
 
@@ -52,14 +53,22 @@ await db.executeMultiple(`
   CREATE INDEX IF NOT EXISTS idx_tokens_user   ON refresh_tokens(user_id);
 `);
 
+// ── Migration: aggiunge must_change_password se il DB esiste già ─────────────
+try {
+  await db.execute(`ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`);
+  console.log('🔄 Migration: colonna must_change_password aggiunta');
+} catch (e) {
+  // colonna già presente — ignorato
+}
+
 // ── Seed admin ────────────────────────────────────────────
 const { rows } = await db.execute(`SELECT id FROM users WHERE username = 'admin'`);
 if (!rows.length) {
   const { v4: uuidv4 } = await import('uuid');
   const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Admin@1234!', 12);
   await db.execute({
-    sql: `INSERT INTO users (id, username, email, password_hash, role)
-          VALUES (?, 'admin', 'admin@spid-metadata.local', ?, 'admin')`,
+    sql: `INSERT INTO users (id, username, email, password_hash, role, must_change_password)
+          VALUES (?, 'admin', 'admin@spid-metadata.local', ?, 'admin', 1)`,
     args: [uuidv4(), hash]
   });
   console.log('👤 Utente admin creato (cambia la password al primo accesso!)');

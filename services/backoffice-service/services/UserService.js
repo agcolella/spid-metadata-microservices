@@ -1,4 +1,3 @@
-// services/backoffice-service/services/UserService.js
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
@@ -15,6 +14,7 @@ export const ROLE_NAMES = Object.keys(ROLES);
 function safeUser(row) {
   if (!row) return null;
   const { password_hash, ...safe } = row;
+  // must_change_password passa automaticamente nel safe spread
   return safe;
 }
 
@@ -39,17 +39,19 @@ export class UserService {
     let where = `WHERE 1=1`;
     const params = [];
 
-    if (role)              { where += ` AND role = ?`;                              params.push(role); }
-    if (active !== undefined) { where += ` AND active = ?`;                         params.push(active ? 1 : 0); }
-    if (search)            { where += ` AND (username LIKE ? OR email LIKE ?)`;     params.push(`%${search}%`, `%${search}%`); }
+    if (role)                { where += ` AND role = ?`;                            params.push(role); }
+    if (active !== undefined){ where += ` AND active = ?`;                          params.push(active ? 1 : 0); }
+    if (search)              { where += ` AND (username LIKE ? OR email LIKE ?)`;   params.push(`%${search}%`, `%${search}%`); }
 
-    const countSql = `SELECT COUNT(*) as n FROM users ${where}`;
-    const { rows: countRows } = await db.execute({ sql: countSql, args: params });
+    const { rows: countRows } = await db.execute({ sql: `SELECT COUNT(*) as n FROM users ${where}`, args: params });
     const total = Number(countRows[0]?.n ?? 0);
 
-    const dataSql = `SELECT id, username, email, role, active, created_at, updated_at, last_login
-                     FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-    const { rows: users } = await db.execute({ sql: dataSql, args: [...params, limit, (page - 1) * limit] });
+    const { rows: users } = await db.execute({
+      sql:  `SELECT id, username, email, role, active, must_change_password,
+                    created_at, updated_at, last_login
+             FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      args: [...params, limit, (page - 1) * limit]
+    });
 
     return { users, total, page, limit, pages: Math.ceil(total / limit) };
   }
@@ -68,8 +70,10 @@ export class UserService {
     const id   = uuidv4();
     const hash = bcrypt.hashSync(password, 12);
 
+    // must_change_password = 1: il nuovo utente deve cambiare password al primo accesso
     await db.execute({
-      sql:  `INSERT INTO users (id, username, email, password_hash, role) VALUES (?, ?, ?, ?, ?)`,
+      sql:  `INSERT INTO users (id, username, email, password_hash, role, must_change_password)
+             VALUES (?, ?, ?, ?, ?, 1)`,
       args: [id, username, email, hash, role]
     });
 
@@ -105,7 +109,8 @@ export class UserService {
 
     const hash = bcrypt.hashSync(newPassword, 12);
     await db.execute({
-      sql:  `UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+      sql:  `UPDATE users SET password_hash = ?, updated_at = datetime('now'),
+             must_change_password = 0 WHERE id = ?`,
       args: [hash, id]
     });
     return { success: true };
@@ -115,7 +120,8 @@ export class UserService {
     if (newPassword.length < 8) throw new Error('Password troppo corta (min 8 caratteri)');
     const hash = bcrypt.hashSync(newPassword, 12);
     await db.execute({
-      sql:  `UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+      sql:  `UPDATE users SET password_hash = ?, updated_at = datetime('now'),
+             must_change_password = 1 WHERE id = ?`,
       args: [hash, id]
     });
     return { success: true };

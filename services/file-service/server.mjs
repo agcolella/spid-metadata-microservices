@@ -4,6 +4,7 @@ import multer           from 'multer';
 import http             from 'http';
 import { createClient } from '@libsql/client';
 
+const PORT = process.env.FILE_SERVICE_PORT || 4001;
 
 // ─── DB Init ──────────────────────────────────────────────────────────────────
 let db;

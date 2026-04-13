@@ -65,6 +65,7 @@ function parseXmlMeta(content) {
 
 // ─── Middleware Auth ──────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
+  console.log("[AUTH]", { userId: req.headers["x-user-id"], hasAuth: !!req.headers.authorization, path: req.path });
   // Caso 1: header iniettati dal Gateway (tutte le route tranne upload)
   const userId   = req.headers['x-user-id'];
   const username = req.headers['x-username'];

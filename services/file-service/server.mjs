@@ -15,6 +15,13 @@ import { createClient } from '@libsql/client';
 //  authToken: process.env.TURSO_AUTH_TOKEN,
 //});
 
+// DEBUG TEMPORANEO — rimuovi dopo il fix
+console.log('ENV CHECK:', {
+  TURSO_URL:        process.env.TURSO_URL        ? 'PRESENTE' : 'MANCANTE',
+  TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN ? 'PRESENTE' : 'MANCANTE',
+  ALL_KEYS: Object.keys(process.env).filter(k => k.includes('TURSO'))
+});
+
 // ─── DB Init ──────────────────────────────────────────────────────────────────
 async function initDB() {
     if (!process.env.TURSO_URL || !process.env.TURSO_AUTH_TOKEN)

@@ -4,25 +4,10 @@ import multer           from 'multer';
 import http             from 'http';
 import { createClient } from '@libsql/client';
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-//const PORT = process.env.FILE_SERVICE_PORT || 4001;
-
-//if (!process.env.TURSO_URL || !process.env.TURSO_AUTH_TOKEN)
-//  throw new Error('TURSO_URL e TURSO_AUTH_TOKEN sono obbligatori');
-
-//const db = createClient({
-//  url:       process.env.TURSO_URL,
-//  authToken: process.env.TURSO_AUTH_TOKEN,
-//});
-
-// DEBUG TEMPORANEO — rimuovi dopo il fix
-console.log('ENV CHECK:', {
-  TURSO_URL:        process.env.TURSO_URL        ? 'PRESENTE' : 'MANCANTE',
-  TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN ? 'PRESENTE' : 'MANCANTE',
-  ALL_KEYS: Object.keys(process.env).filter(k => k.includes('TURSO'))
-});
 
 // ─── DB Init ──────────────────────────────────────────────────────────────────
+let db;
+
 async function initDB() {
     if (!process.env.TURSO_URL || !process.env.TURSO_AUTH_TOKEN)
     throw new Error('TURSO_URL e TURSO_AUTH_TOKEN sono obbligatori');

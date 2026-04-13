@@ -2,6 +2,7 @@ import express      from 'express';
 import cors         from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import http from 'http';
+import multer from 'multer';
 
 const PORT       = process.env.GATEWAY_PORT           || 8080;
 const FILE_SVC   = process.env.FILE_SERVICE_URL       || 'http://localhost:4001';
@@ -35,32 +36,44 @@ app.options('*', cors(corsOptions));  // ← stesso corsOptions, non cors() vuot
 
 // Upload file — pipe diretto
 // gateway/server.mjs — sostituisci il blocco /api/files/upload
-app.use('/api/files/upload', authMiddleware, (req, res) => {
-  const target = new URL(FILE_SVC);
-  const options = {
-    hostname: target.hostname,
-    port:     target.port || 80,
-    path:     '/upload',
-    method:   req.method,
-    headers: {
-      // Header essenziali — NON fare spread di req.headers per multipart
-      'content-type':  req.headers['content-type'],   // boundary incluso
-      'authorization': req.headers['authorization'],
-      'x-user-id':     req.headers['x-user-id'],
-      'x-username':    req.headers['x-username'],
-      'x-user-role':   req.headers['x-user-role'],
-      'content-length': req.headers['content-length'],
-    },
-  };
-  const proxyReq = http.request(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res);
-  });
-  proxyReq.on('error', (e) => {
-    res.status(502).json({ error: 'Upload service non raggiungibile', detail: e.message });
-  });
-  req.pipe(proxyReq);
-});
+const gatewayUpload = multer({ storage: multer.memoryStorage() });
+
+app.post(
+  '/api/files/upload',
+  authMiddleware,
+  gatewayUpload.single('xmlFile'),
+  async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'Nessun file ricevuto' });
+
+      const axios    = (await import('axios')).default;
+      const FormData = (await import('form-data')).default;
+
+      const form = new FormData();
+      form.append('xmlFile', req.file.buffer, {
+        filename:    req.file.originalname,
+        contentType: req.file.mimetype || 'application/xml',
+      });
+
+      const response = await axios.post(`${FILE_SVC}/upload`, form, {
+        headers: {
+          ...form.getHeaders(),
+          'x-user-id':   req.headers['x-user-id'],
+          'x-username':  req.headers['x-username'],
+          'x-user-role': req.headers['x-user-role'],
+        },
+        maxBodyLength: Infinity,
+        timeout: 30000,
+        validateStatus: () => true,
+      });
+
+      res.status(response.status).json(response.data);
+    } catch (e) {
+      res.status(502).json({ error: 'Upload service non raggiungibile', detail: e.message });
+    }
+  }
+);
+
 app.use(express.json());
 
 // Mappa path → ruolo minimo richiesto

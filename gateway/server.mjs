@@ -34,14 +34,21 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));  // ← stesso corsOptions, non cors() vuoto
 
 // Upload file — pipe diretto
-app.use('/api/files/upload', (req, res) => {
+// gateway/server.mjs — sostituisci il blocco /api/files/upload
+app.use('/api/files/upload', authMiddleware, (req, res) => {
   const target = new URL(FILE_SVC);
   const options = {
     hostname: target.hostname,
-    port: target.port || 80,
-    path: '/upload',
-    method: req.method,
-    headers: { ...req.headers, host: target.host },
+    port:     target.port || 80,
+    path:     '/upload',
+    method:   req.method,
+    headers: {
+      ...req.headers,
+      host:          target.host,
+      'x-user-id':   req.headers['x-user-id'],
+      'x-username':  req.headers['x-username'],
+      'x-user-role': req.headers['x-user-role'],
+    },
   };
   const proxyReq = http.request(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);

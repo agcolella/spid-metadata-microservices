@@ -64,22 +64,42 @@ function parseXmlMeta(content) {
 
 // ─── Middleware Auth ──────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
+  // Caso 1: header iniettati dal Gateway (tutte le route tranne upload)
+  const userId   = req.headers['x-user-id'];
+  const username = req.headers['x-username'];
+  const role     = req.headers['x-user-role'];
+
+  if (userId) {
+    req.user = { id: userId, username, role };
+    return next();
+  }
+
+  // Caso 2: upload diretto con JWT (bypassa authMiddleware del Gateway)
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer '))
     return res.status(401).json({ error: 'Non autorizzato' });
+
   try {
     const payload = JSON.parse(
       Buffer.from(auth.split('.')[1], 'base64').toString()
     );
     if (payload.exp && Date.now() / 1000 > payload.exp)
       return res.status(401).json({ error: 'Token scaduto' });
-    req.user = payload;   // { id, username, role, ... }
+
+    req.user = {
+      id:       payload.sub ?? payload.id,   // sub è lo standard JWT
+      username: payload.username,
+      role:     payload.role,
+    };
+
+    if (!req.user.id)
+      return res.status(401).json({ error: 'Token non contiene user id' });
+
     next();
   } catch {
     res.status(401).json({ error: 'Token non valido' });
   }
 }
-
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (_, res) =>

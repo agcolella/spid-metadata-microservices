@@ -5,18 +5,26 @@ import http             from 'http';
 import { createClient } from '@libsql/client';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const PORT = process.env.FILE_SERVICE_PORT || 4001;
+//const PORT = process.env.FILE_SERVICE_PORT || 4001;
 
-if (!process.env.TURSO_URL || !process.env.TURSO_AUTH_TOKEN)
-  throw new Error('TURSO_URL e TURSO_AUTH_TOKEN sono obbligatori');
+//if (!process.env.TURSO_URL || !process.env.TURSO_AUTH_TOKEN)
+//  throw new Error('TURSO_URL e TURSO_AUTH_TOKEN sono obbligatori');
 
-const db = createClient({
-  url:       process.env.TURSO_URL,
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
+//const db = createClient({
+//  url:       process.env.TURSO_URL,
+//  authToken: process.env.TURSO_AUTH_TOKEN,
+//});
 
 // ─── DB Init ──────────────────────────────────────────────────────────────────
 async function initDB() {
+    if (!process.env.TURSO_URL || !process.env.TURSO_AUTH_TOKEN)
+    throw new Error('TURSO_URL e TURSO_AUTH_TOKEN sono obbligatori');
+
+  db = createClient({
+    url:       process.env.TURSO_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS xml_files (
       id                   INTEGER  PRIMARY KEY AUTOINCREMENT,

@@ -43,11 +43,13 @@ app.use('/api/files/upload', authMiddleware, (req, res) => {
     path:     '/upload',
     method:   req.method,
     headers: {
-      ...req.headers,
-      host:          target.host,
-      'x-user-id':   req.headers['x-user-id'],
-      'x-username':  req.headers['x-username'],
-      'x-user-role': req.headers['x-user-role'],
+      // Header essenziali — NON fare spread di req.headers per multipart
+      'content-type':  req.headers['content-type'],   // boundary incluso
+      'authorization': req.headers['authorization'],
+      'x-user-id':     req.headers['x-user-id'],
+      'x-username':    req.headers['x-username'],
+      'x-user-role':   req.headers['x-user-role'],
+      'content-length': req.headers['content-length'],
     },
   };
   const proxyReq = http.request(options, (proxyRes) => {
@@ -59,7 +61,6 @@ app.use('/api/files/upload', authMiddleware, (req, res) => {
   });
   req.pipe(proxyReq);
 });
-
 app.use(express.json());
 
 // Mappa path → ruolo minimo richiesto

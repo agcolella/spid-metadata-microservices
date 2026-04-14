@@ -561,11 +561,19 @@ function MainPage() {
 
   const loadFiles = async () => {
     try {
-      const res = await axios.get(API.files, getAuthHeaders());
-      setFiles(res.data);
-    } catch { notify.error('Errore nel caricamento dei file'); }
-  };
+      const res = await axios.get(API.files, getAuthHeaders);
+      const fileList = Array.isArray(res.data) ? res.data : [];
+      setFiles(fileList);
 
+      // ← NUOVO: avvia validazione XML e certificato per tutti i file
+      fileList.forEach(file => {
+        loadValidation(file.filename);
+        if (file.entityID) loadCertificateData(file.entityID, file);
+      });
+    } catch {
+      notify.error('Errore nel caricamento dei file');
+    }
+  };
   const loadValidation = async (filename) => {
     const file = files.find(f => f.filename === filename);
     if (file?.validation) return file.validation;
@@ -603,7 +611,7 @@ function MainPage() {
 // per evitare collisioni tra file diversi con lo stesso entityId
 
 const loadCertificateData = async (entityId) => {
-  const file = files.find(f => f.entityID === entityId);
+  const file = fileObj || files.find(f => f.entityID === entityId);
   if (!entityId) return;
 
   // Chiave cache composta: filename::entityId
@@ -655,6 +663,26 @@ const loadCertificateData = async (entityId) => {
         message: e,
         source:  'certificate',
       }));
+      // usa filename invece di entityId per identificare il file
+      const targetFilename = (fileObj || file)?.filename;
+
+      setFiles(prev => Array.isArray(prev)
+        ? prev.map(f => {
+            if (f.filename !== targetFilename) return f;  // ← confronto per filename
+            const existing = f.validation || { errors: [], warnings: [] };
+            if (existing.errors.some(e => e.source === 'certificate')) return f;
+            return {
+              ...f,
+              validation: {
+                ...existing,
+                errors: [...existing.errors, ...certErrors],
+              },
+            };
+          })
+        : prev
+      );
+    }
+
       setFiles(prev => Array.isArray(prev)
         ? prev.map(f => {
             if (f.entityID !== entityId) return f;

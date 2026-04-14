@@ -597,21 +597,89 @@ function MainPage() {
     }
   };
 
-  const loadCertificateData = async (entityId) => {
-    if (!entityId || certificateCache[entityId]) return certificateCache[entityId];
-    setCertificateLoading(prev => { const next = ensureSet(prev); next.add(entityId); return new Set(next); });
-    try {
-      const res = await axios.post(`${API_BASE}/api/certificates/verify`, { entityId }, getAuthHeaders());
-      setCertificateCache(prev => ({ ...(prev && typeof prev === 'object' ? prev : {}), [entityId]: res.data }));
-      return res.data;
-    } catch (err) {
-      const data = { valid:false, error:err.response?.data?.error||err.message||'Errore verifica certificato' };
-      setCertificateCache(prev => ({ ...(prev && typeof prev === 'object' ? prev : {}), [entityId]: data }));
-      return data;
-    } finally {
-      setCertificateLoading(prev => { const next = ensureSet(prev); next.delete(entityId); return new Set(next); });
+// App.jsx — sostituisci la funzione loadCertificateData esistente
+
+// La cache usa "filename::entityId" come chiave invece di solo entityId
+// per evitare collisioni tra file diversi con lo stesso entityId
+
+const loadCertificateData = async (entityId) => {
+  const file = files.find(f => f.entityID === entityId);
+  if (!entityId) return;
+
+  // Chiave cache composta: filename::entityId
+  const cacheKey = file?.filename
+    ? `${file.filename}::${entityId}`
+    : entityId;
+
+  if (certificateCache[cacheKey]) return certificateCache[cacheKey];
+
+  setCertificateLoading(prev => {
+    const next = ensureSet(prev);
+    next.add(entityId);
+    return new Set(next);
+  });
+
+  try {
+    let xmlContent = null;
+    if (file?.filename) {
+      try {
+        const xmlRes = await axios.post(
+          `${API_BASE}/api/files/get-xml-contents`,
+          { filenames: [file.filename] },
+          getAuthHeaders
+        );
+        xmlContent = Array.isArray(xmlRes.data)
+          ? xmlRes.data[0]?.content
+          : null;
+      } catch {
+        // xmlContent rimane null → fallback a registry
+      }
     }
-  };
+
+    const res = await axios.post(
+      `${API_BASE}/api/certificates/verify`,
+      xmlContent ? { entityId, xmlContent } : { entityId },
+      getAuthHeaders
+    );
+
+    setCertificateCache(prev => ({
+      ...(typeof prev === 'object' ? prev : {}),
+      [cacheKey]: res.data,
+    }));
+
+    return res.data;
+  } catch (err) {
+    const data = {
+      valid: false,
+      error: err.response?.data?.error || err.message || 'Errore verifica certificato',
+    };
+    setCertificateCache(prev => ({
+      ...(typeof prev === 'object' ? prev : {}),
+      [cacheKey]: data,
+    }));
+    return data;
+  } finally {
+    setCertificateLoading(prev => {
+      const next = ensureSet(prev);
+      next.delete(entityId);
+      return new Set(next);
+    });
+  }
+};
+
+// ─── ATTENZIONE: aggiorna anche la lettura della cache nelle righe della tabella ───
+//
+// PRIMA (usa solo entityId come chiave):
+//   const certInfo = file.entityID ? certificateCache[file.entityID] : null
+//   const certLoading = file.entityID ? safeCertificateLoading.has(file.entityID) : false
+//
+// DOPO (usa la chiave composta):
+//   const certCacheKey = file.filename && file.entityID
+//     ? `${file.filename}::${file.entityID}`
+//     : file.entityID
+//   const certInfo = certCacheKey ? certificateCache[certCacheKey] : null
+//   const certLoading = file.entityID ? safeCertificateLoading.has(file.entityID) : false
+
 
   const handleViewXml = async (filename) => {
     try {
@@ -891,8 +959,13 @@ function MainPage() {
                     const isExpanded = safeExpandedRows.includes(file.filename);
                     const isValidating = safeValidating.has(file.filename);
                     const registry = file.entityID ? registryCache[file.entityID] : null;
-                    const certInfo = file.entityID ? certificateCache[file.entityID] : null;
-                    const certLoading = file.entityID ? safeCertificateLoading.has(file.entityID) : false;
+
+                    // DOPO
+                    const certCacheKey = file.filename && file.entityID
+                      ? `${file.filename}::${file.entityID}`
+                      : file.entityID
+                    const certInfo    = certCacheKey ? certificateCache[certCacheKey] : null
+                    const certLoading = file.entityID ? safeCertificateLoading.has(file.entityID) : false
                     const validationErrors   = Array.isArray(file?.validation?.errors)   ? file.validation.errors   : [];
                     const validationWarnings = Array.isArray(file?.validation?.warnings) ? file.validation.warnings : [];
                     const certErrors = Array.isArray(certInfo?.errors) ? certInfo.errors : [];

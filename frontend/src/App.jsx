@@ -642,11 +642,37 @@ const loadCertificateData = async (entityId) => {
       getAuthHeaders
     );
 
+    // Dopo aver salvato in cache:
     setCertificateCache(prev => ({
       ...(typeof prev === 'object' ? prev : {}),
       [cacheKey]: res.data,
     }));
 
+    // ← NUOVO: se certificato non valido, aggiunge errori in file.validation
+    if (!res.data.valid) {
+      const certErrors = (res.data.errors || []).map(e => ({
+        testId:  'CERT_INVALID',
+        message: e,
+        source:  'certificate',
+      }));
+      setFiles(prev => Array.isArray(prev)
+        ? prev.map(f => {
+            if (f.entityID !== entityId) return f;
+            const existing = f.validation || { errors: [], warnings: [] };
+            // evita duplicati
+            const alreadyAdded = existing.errors.some(e => e.source === 'certificate');
+            if (alreadyAdded) return f;
+            return {
+              ...f,
+              validation: {
+                ...existing,
+                errors: [...existing.errors, ...certErrors],
+              },
+            };
+          })
+        : prev
+      );
+    }
     return res.data;
   } catch (err) {
     const data = {
@@ -796,7 +822,7 @@ const loadCertificateData = async (entityId) => {
     setExpandedRows(prev => (Array.isArray(prev) ? [...prev, filename] : [filename]));
     const file = files.find(f => f.filename === filename);
     if (file?.entityID && !registryCache[file.entityID]) loadRegistryData(file.entityID);
-    if (file?.entityID && !certificateCache[file.entityID]) loadCertificateData(file.entityID);
+    if (file?.entityID) loadCertificateData(file.entityID);
     loadValidation(filename);
   };
 
@@ -865,7 +891,7 @@ const loadCertificateData = async (entityId) => {
                 {sidebarFiles.filter(f => f.filename.toLowerCase().includes(search.toLowerCase())).map(file => {
                   const isSelected   = selectedFiles.includes(file.filename);
                   const isValidating = ensureSet(validating).has(file.filename);
-                  const errCount     = file.validation?.errors?.length  || 0;
+                  const errCount     = file.validation?.errors?.length > 0;
                   const warnCount    = file.validation?.warnings?.length || 0;
                   const inRegistry   = file.entityID && registryCache[file.entityID]?.exists;
                   return (
@@ -1006,7 +1032,7 @@ const loadCertificateData = async (entityId) => {
                               </table>
                               {isValidating&&<div style={{ padding:10, borderRadius:6, background:'#f1f5f9', color:'#64748b', fontSize:'0.85rem' }}>⟳ Validazione in corso…</div>}
                               {!isValidating&&file.validation&&(<>
-                                {validationErrors.length>0&&(<div style={{ marginBottom:8, padding:12, borderRadius:6, background:'#fef2f2', borderLeft:'4px solid #dc2626' }}><strong style={{ color:'#991b1b', display:'block', marginBottom:6 }}>❌ Errori di validazione ({validationErrors.length})</strong><ul style={{ margin:0, paddingLeft:20 }}>{validationErrors.map((e,i)=><li key={i} style={{ fontSize:'0.82rem', color:'#991b1b', marginBottom:3 }}>{typeof e==='object'?`[${e.testId||e.test_id||e.testid||'N/D'}] ${e.message||JSON.stringify(e)}`:e}</li>)}</ul></div>)}
+                                {validationErrors.length>0&&(<div style={{ marginBottom:8, padding:12, borderRadius:6, background:'#fef2f2', borderLeft:'4px solid #dc2626' }}><strong style={{ color:'#991b1b', display:'block', marginBottom:6 }}>❌ Errori di validazione ({validationErrors.length})</strong><ul style={{ margin:0, paddingLeft:20 }}>{validationErrors.map((e,i)=><li key={i} style={{ fontSize:'0.82rem', color:'#991b1b', marginBottom:3 }}>{e.source === 'certificate' ? '🔐 ' : ''}{typeof e==='object'?`[${e.testId||e.test_id||e.testid||'N/D'}] ${e.message||JSON.stringify(e)}`:e}</li>)}</ul></div>)}
                                 {validationWarnings.length>0&&(<div style={{ marginBottom:8, padding:12, borderRadius:6, background:'#fffbeb', borderLeft:'4px solid #d97706' }}><strong style={{ color:'#92400e', display:'block', marginBottom:6 }}>⚠️ Warning ({validationWarnings.length})</strong><ul style={{ margin:0, paddingLeft:20 }}>{validationWarnings.map((w,i)=><li key={i} style={{ fontSize:'0.82rem', color:'#92400e', marginBottom:3 }}>{typeof w==='object'?`[${w.testId||w.test_id||w.testid||'N/D'}] ${w.message||JSON.stringify(w)}`:w}</li>)}</ul></div>)}
                                 {validationErrors.length===0&&validationWarnings.length===0&&(<div style={{ padding:10, borderRadius:6, background:'#ecfdf3', borderLeft:'4px solid #16a34a', color:'#166534', fontSize:'0.85rem' }}>✅ Nessun errore o warning di validazione.</div>)}
                               </>)}

@@ -1,6 +1,5 @@
 import { DOMParser } from '@xmldom/xmldom';
 import xpath from 'xpath';
-import libxmljs from 'libxmljs2';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -40,45 +39,6 @@ export class SpidMetadataValidator {
     this.doc        = null;
     this.entityID   = null;
     this.organizationName = null;
-  }
-  // ── NUOVO: validazione XSD ─────────────────────────────
-  test_XSD(xmlString) {
-    try {
-      const doc   = libxmljs.parseXml(xmlString);
-      const valid = doc.validate(xsdDoc);
-      if (!valid) {
-        doc.validationErrors.forEach(e =>
-          this._assert(false, `XSD: ${e.message}`, 'xsd.schema', 'error')
-        );
-      }
-    } catch (e) {
-      this._assert(false, `Errore parsing XSD: ${e.message}`, 'xsd.parse', 'error');
-    }
-  }
-    // ── NUOVO: scadenza certificato (via certificate-service) ──
-  async test_CertificateExpiry(xmlString, entityID) {
-    const CERT_SVC = process.env.CERTIFICATE_SERVICE_URL || 'http://localhost:4007';
-    try {
-      const res  = await fetch(`${CERT_SVC}/verify`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ entityId: entityID, xmlContent: xmlString }),
-      });
-      const data = await res.json();
-
-      (data.errors   || []).forEach(e => this._assert(false, e, 'cert.expiry',      'error'));
-      (data.warnings || []).forEach(w => this._assert(false, w, 'cert.expiry.warn', 'warning'));
-
-      if (data.certificate) {
-        const notAfter = new Date(data.certificate.notAfter);
-        const days90   = new Date(Date.now() + 90 * 86400000);
-        this._assert(notAfter > days90,
-          `Certificato in scadenza il ${notAfter.toISOString().split('T')[0]}`,
-          'cert.expiry.soon', 'warning');
-      }
-    } catch {
-      // non blocca la validazione se il certificate-service è irraggiungibile
-    }
   }
 
   load(xmlString) {

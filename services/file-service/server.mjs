@@ -196,7 +196,7 @@ app.get('/files/:filename/content', requireAuth, async (req, res) => {
   }
 });
 
-// Validazione — proxy verso validation-service (invariato)
+// Validazione — proxy verso validation-service
 app.get('/files/:filename/validate', requireAuth, async (req, res) => {
   try {
     const result = await db.execute({
@@ -206,36 +206,23 @@ app.get('/files/:filename/validate', requireAuth, async (req, res) => {
     if (!result.rows.length)
       return res.status(404).json({ error: 'File non trovato' });
 
-    const content = result.rows[0].content;
+    const content        = result.rows[0].content;
     const VALIDATION_SVC = process.env.VALIDATION_SERVICE_URL || 'http://localhost:4002';
-    const body    = JSON.stringify({ content, filename: req.params.filename });
-    const url     = new URL(VALIDATION_SVC);
-    const options = {
-      hostname: url.hostname,
-      port:     url.port || 80,
-      path:     '/validate',
-      method:   'POST',
-      headers:  {
-        'Content-Type':   'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-    };
 
-      try {
-        const { data } = await axios.post(
-          `${VALIDATION_SVC}/validate`,
-          { content, filename: req.params.filename },
-          {
-            headers: { Authorization: req.headers.authorization || '' },
-            validateStatus: () => true,   // non lancia eccezione su 4xx/5xx
-          }
-        );
-        res.status(data.statusCode || 200).json(data);
-      } catch (e) {
-        res.status(502).json({ error: e.message });
-      }
+    const upstream = await fetch(`${VALIDATION_SVC}/validate`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': req.headers.authorization || '',
+      },
+      body: JSON.stringify({ content, filename: req.params.filename }),
+    });
+
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(502).json({ error: e.message });
   }
 });
 

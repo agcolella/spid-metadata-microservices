@@ -480,48 +480,56 @@ export class SpidMetadataValidator {
   runProfileOperatorPublicFull()    { this.runProfileSpidSP(); this.test_entityid_qs(); this.test_entityid_contains('pub-op-full'); }
   runProfileOperatorPublicLite()    { this.runProfileSpidSP(); this.test_entityid_qs(); this.test_entityid_contains('pub-op-lite'); }
 
-  // ── Aggiorna validate() per essere async ──────────────────
-  async validate(xmlString, profile = 'spid_sp_public') {
-    this.errors   = [];
-    this.warnings = [];
+// Aggiungi in fondo alla classe, prima di validate()
+async test_CertificateExpiry(xmlString) {
+  const CERT_SVC = process.env.CERTIFICATE_SERVICE_URL || 'http://localhost:4007';
+  try {
+    const res  = await fetch(`${CERT_SVC}/verify`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ entityId: this.entityID, xmlContent: xmlString }),
+    });
+    const data = await res.json();
 
-    try { this.load(xmlString); }
-    catch (e) {
-      return {
-        valid:  false,
-        errors: [{ testId: 'parse', message: e.message, level: 'error' }],
-        warnings: [], entityID: null, organizationName: null, profile
-      };
+    (data.errors   || []).forEach(e => this._assert(false, e, 'cert.expiry',      'error'));
+    (data.warnings || []).forEach(w => this._assert(false, w, 'cert.expiry.warn', 'warning'));
+
+    if (data.certificate) {
+      const notAfter = new Date(data.certificate.notAfter);
+      const days90   = new Date(Date.now() + 90 * 86400000);
+      this._assert(notAfter > days90,
+        `Certificato in scadenza il ${notAfter.toISOString().split('T')[0]}`,
+        'cert.expiry.soon', 'warning');
     }
+  } catch {
+    // non bloccante se il certificate-service è irraggiungibile
+  }
+}
 
-    // XSD prima di tutto
-    this.test_XSD(xmlString);
-
-    const profileMap = {
-      saml2core:      () => this.runProfileSaml2Core(),
-      spid_sp:        () => this.runProfileSpidSP(),
-      spid_sp_public: () => this.runProfileSpidSPPublic(),
-      spid_sp_private:() => this.runProfileSpidSPPrivate(),
-      ag_public_full: () => this.runProfileAggregatorPublicFull(),
-      ag_public_lite: () => this.runProfileAggregatorPublicLite(),
-      ag_private_full:() => this.runProfileAggregatorPrivateFull(),
-      ag_private_lite:() => this.runProfileAggregatorPrivateLite(),
-      op_public_full: () => this.runProfileOperatorPublicFull(),
-      op_public_lite: () => this.runProfileOperatorPublicLite(),
-    };
-
-    (profileMap[profile] ?? profileMap['spid_sp_public'])();
-
-    // Verifica certificato (async, non bloccante)
-    await this.test_CertificateExpiry(xmlString, this.entityID);
-
+// Aggiorna validate() → async
+async validate(xmlString, profile = 'spid_sp_public') {
+  this.errors   = [];
+  this.warnings = [];
+  try { this.load(xmlString); }
+  catch (e) {
     return {
-      valid:            this.errors.length === 0,
-      errors:           this.errors,
-      warnings:         this.warnings,
-      entityID:         this.entityID,
-      organizationName: this.organizationName,
-      profile
+      valid: false,
+      errors: [{ testId: 'parse', message: e.message, level: 'error' }],
+      warnings: [], entityID: null, organizationName: null, profile
     };
   }
+
+  (profileMap[profile] ?? profileMap['spid_sp_public'])();  // tuo codice esistente
+
+  await this.test_CertificateExpiry(xmlString);  // ← nuovo
+
+  return {
+    valid:            this.errors.length === 0,
+    errors:           this.errors,
+    warnings:         this.warnings,
+    entityID:         this.entityID,
+    organizationName: this.organizationName,
+    profile
+  };
+}
 }

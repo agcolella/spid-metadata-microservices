@@ -13,13 +13,12 @@ app.get('/health', (_, res) =>
   res.json({ service: 'validation-service', status: 'ok', port: PORT, production: PRODUCTION })
 );
 
-app.post('/validate', (req, res) => {
+// Nel validation-service/server.mjs
+app.post('/validate', requireAuth, async (req, res) => {
   try {
-    const { content, filename = 'unknown.xml', profile = 'spid_sp_public' } = req.body;
-    if (!content) return res.status(400).json({ error: 'content mancante' });
-
+    const { content, filename, profile } = req.body;
     const validator = new SpidMetadataValidator({ production: PRODUCTION });
-    const result    = validator.validate(content, profile);
+    const result    = await validator.validate(content, profile);  // ← await
     res.json({ filename, ...result });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -255,10 +255,15 @@ app.post('/create', async (req, res) => {
       uploadErrors
     });
 
-  } catch (e) {
-    console.error('❌ Errore creazione PR:', e.message);
-    res.status(500).json({ success: false, error: e.message });
-  }
+//  } catch (e) {
+//    console.error('❌ Errore creazione PR:', e.message);
+//    res.status(500).json({ success: false, error: e.message });
+//  }
+    } catch (e) {
+      console.error('❌ Errore creazione PR:', e.message, e.stack, JSON.stringify(e));
+      res.status(500).json({ error: e.message || JSON.stringify(e) });
+    }
+
 });
 // ── GET /status/:number ───────────────────────────────────
 app.get('/status/:number', async (req, res) => {

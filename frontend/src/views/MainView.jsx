@@ -170,7 +170,7 @@ export default function MainView() {
 
       setCertificateCache(prev => {
         const next = { ...(typeof prev === 'object' ? prev : {}) };
-        next[cacheKey] = res.data;
+        next[cacheKey] = data;
         return next;
       });
 
@@ -200,7 +200,7 @@ export default function MainView() {
       };
         setCertificateCache(prev => {
           const next = { ...(typeof prev === 'object' ? prev : {}) };
-          next[cacheKey] = res.data;
+          next[cacheKey] = data;
           return next;
         });
       return data;

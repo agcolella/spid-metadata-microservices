@@ -3,6 +3,7 @@ import cors             from 'cors';
 import multer           from 'multer';
 import http             from 'http';
 import { createClient } from '@libsql/client';
+import axios from 'axios';
 
 const PORT = process.env.FILE_SERVICE_PORT || 4001;
 
@@ -220,17 +221,19 @@ app.get('/files/:filename/validate', requireAuth, async (req, res) => {
       },
     };
 
-    const proxyReq = http.request(options, (proxyRes) => {
-      let data = '';
-      proxyRes.on('data', chunk => data += chunk);
-      proxyRes.on('end', () => {
-        try   { res.status(proxyRes.statusCode).json(JSON.parse(data)); }
-        catch { res.status(500).json({ error: 'Risposta non valida dal validation-service' }); }
-      });
-    });
-    proxyReq.on('error', e => res.status(502).json({ error: e.message }));
-    proxyReq.write(body);
-    proxyReq.end();
+      try {
+        const { data } = await axios.post(
+          `${VALIDATION_SVC}/validate`,
+          { content, filename: req.params.filename },
+          {
+            headers: { Authorization: req.headers.authorization || '' },
+            validateStatus: () => true,   // non lancia eccezione su 4xx/5xx
+          }
+        );
+        res.status(data.statusCode || 200).json(data);
+      } catch (e) {
+        res.status(502).json({ error: e.message });
+      }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

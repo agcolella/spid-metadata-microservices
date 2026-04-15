@@ -269,3 +269,4 @@ export function UserManagementView() {
     </UserManagementBoundary>
   );
 }
+export default UserManagementView;

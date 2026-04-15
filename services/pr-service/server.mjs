@@ -49,22 +49,31 @@ function generateBody(filesData, organizations, validationResults) {
   return body;
 }
 
-async function getFileContents(filenames) {
-  const { data } = await axios.post(`${FILE_SVC}/get-xml-contents`, { filenames });
+// 1. Aggiorna le funzioni per accettare il token
+async function getFileContents(filenames, token) {
+  const { data } = await axios.post(
+    `${FILE_SVC}/get-xml-contents`,
+    { filenames },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
   return data;
 }
 
-async function validateFiles(filesData) {
-  const { data } = await axios.post(`${VALID_SVC}/validate-batch`, {
-    files: filesData.map(f => ({ filename: f.filename, content: f.content }))
-  });
+async function validateFiles(filesData, token) {
+  const { data } = await axios.post(
+    `${VALID_SVC}/validate-batch`,
+    { files: filesData.map(f => ({ filename: f.filename, content: f.content })) },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
   return data;
 }
 
-async function checkDuplicates(filesData) {
-  const { data } = await axios.post(`${VALID_SVC}/check-duplicates`, {
-    filesData: filesData.map(f => ({ filename: f.filename, entityID: f.entityID }))
-  });
+async function checkDuplicates(filesData, token) {
+  const { data } = await axios.post(
+    `${VALID_SVC}/check-duplicates`,
+    { filesData: filesData.map(f => ({ filename: f.filename, entityID: f.entityID })) },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
   return data.duplicates || [];
 }
 
@@ -80,13 +89,13 @@ app.post('/preview', async (req, res) => {
     const { files } = req.body;
     if (!Array.isArray(files) || !files.length)
       return res.status(400).json({ error: 'files obbligatorio e non vuoto' });
-
+    const token = req.headers.authorization?.split(' ')[1]; // ← aggiunta
     // 1. Leggi contenuti da file-service
     const contents = await getFileContents(files);
     const validFiles = contents.filter(f => f.success);
 
     // 2. Valida batch
-    const validations = await validateFiles(validFiles);
+    const validations = await validateFiles(validFiles, token);
 
     // 3. Aggrega dati
     const filesData   = [];
@@ -110,7 +119,7 @@ app.post('/preview', async (req, res) => {
     });
 
     // 4. Controlla duplicati
-    const duplicates = await checkDuplicates(filesData);
+    const duplicates = await checkDuplicates(filesData, token);
     const orgList    = Array.from(organizations);
 
     res.json({
@@ -133,6 +142,7 @@ app.post('/create', async (req, res) => {
     const { files, draft = false } = req.body;
     if (!Array.isArray(files) || !files.length)
       return res.status(400).json({ error: 'files obbligatorio e non vuoto' });
+    const token = req.headers.authorization?.split(' ')[1]; // ← aggiunta
 
     console.log(`🚀 Avvio creazione PR — ${files.length} file`);
 
@@ -142,13 +152,13 @@ app.post('/create', async (req, res) => {
       return res.status(400).json({ error: `Accesso GitHub non valido: ${accessRes.data.error}` });
 
     // 2. Leggi contenuti
-    const contents   = await getFileContents(files);
-    const validFiles = contents.filter(f => f.success);
+    const contents   = await getFileContents(files, token);
+    const validFiles = contents.filter(f => f.success, token);
     if (!validFiles.length)
       return res.status(400).json({ error: 'Nessun file leggibile' });
 
     // 3. Valida
-    const validations = await validateFiles(validFiles);
+    const validations = await validateFiles(validFiles, token);
     const filesData   = [];
     const allErrors   = [];
     const allWarnings = [];
@@ -172,7 +182,7 @@ app.post('/create', async (req, res) => {
       return res.status(400).json({ error: 'Validazione fallita (strict mode)', errors: allErrors });
 
     // 4. Duplicati
-    const duplicates = await checkDuplicates(filesData);
+    const duplicates = await checkDuplicates(filesData, token);
     const orgList    = Array.from(organizations);
 
     // 5. Crea branch

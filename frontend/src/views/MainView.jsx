@@ -66,7 +66,7 @@ export default function MainView() {
   const [validFilesForPR,    setValidFilesForPR]    = useState([]);
   const [activePage,         setActivePage]         = useState('main');
 
-  const userRole    = getUserRole();
+  const userRole     = getUserRole();
   const fileInputRef = useRef();
   const dirInputRef  = useRef();
   const prSteps = ['Validazione', 'Creazione Branch', 'Upload File', 'Creazione Commit', 'Apertura PR'];
@@ -79,7 +79,6 @@ export default function MainView() {
     if (raw) { try { setPullRequests(JSON.parse(raw)); } catch { setPullRequests([]); } }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── helpers ────────────────────────────────────────────────
   const toggleSection = (s) =>
     setSectionsCollapsed(prev => ({ ...prev, [s]: !prev[s] }));
 
@@ -129,9 +128,9 @@ export default function MainView() {
       );
       const data = {
         exists:         true,
-        createDate:     res.data.create_date      || null,
-        lastUpdateDate: res.data.lastupdate_date  || null,
-        registry_link:  res.data.registry_link    ||
+        createDate:     res.data.create_date     || null,
+        lastUpdateDate: res.data.lastupdate_date || null,
+        registry_link:  res.data.registry_link   ||
           `https://registry.spid.gov.it/entities-sp/${encodeURIComponent(entityID)}`,
         raw: res.data,
       };
@@ -401,7 +400,12 @@ export default function MainView() {
             ...(userRole === 'admin' ? [{ id: 'users', label: '👥 Gestione Utenti' }] : []),
           ].map(({ id, label }) => (
             <button key={id} onClick={() => setActivePage(id)}
-              style={{ background: activePage === id ? '#3b82f6' : 'transparent', color: '#f1f5f9', border: 'none', borderRadius: 6, padding: '8px 10px', cursor: 'pointer', textAlign: 'left', fontSize: '0.85rem', fontWeight: activePage === id ? 700 : 400 }}>
+              style={{
+                background: activePage === id ? '#3b82f6' : 'transparent',
+                color: '#f1f5f9', border: 'none', borderRadius: 6,
+                padding: '8px 10px', cursor: 'pointer', textAlign: 'left',
+                fontSize: '0.85rem', fontWeight: activePage === id ? 700 : 400,
+              }}>
               {label}
             </button>
           ))}
@@ -415,8 +419,10 @@ export default function MainView() {
 
         {/* Upload */}
         <div style={{ borderBottom: '1px solid #334155', paddingBottom: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 8, display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}
-            onClick={() => toggleSection('upload')}>
+          <div
+            style={{ fontWeight: 600, marginBottom: 8, display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}
+            onClick={() => toggleSection('upload')}
+          >
             <span>📤 Upload{uploadProgress.active && ` (${uploadProgress.loaded}/${uploadProgress.total})`}</span>
             <span>{sectionsCollapsed.upload ? '▶' : '▼'}</span>
           </div>
@@ -432,7 +438,10 @@ export default function MainView() {
               </button>
               {uploadProgress.active && (
                 <div style={{ background: '#334155', borderRadius: 6, height: 6 }}>
-                  <div style={{ background: '#3b82f6', height: 6, borderRadius: 6, transition: 'width .3s', width: `${(uploadProgress.loaded / uploadProgress.total) * 100}%` }} />
+                  <div style={{
+                    background: '#3b82f6', height: 6, borderRadius: 6, transition: 'width .3s',
+                    width: `${(uploadProgress.loaded / uploadProgress.total) * 100}%`,
+                  }} />
                 </div>
               )}
               {uploadErrors.length > 0 && (
@@ -446,16 +455,22 @@ export default function MainView() {
 
         {/* Lista file */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0 }}>
-          <div style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}
-            onClick={() => toggleSection('files')}>
+          <div
+            style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}
+            onClick={() => toggleSection('files')}
+          >
             <span>📋 File ({files.length}){selectedFiles.length > 0 && ` — ${selectedFiles.length} sel.`}</span>
             <span>{sectionsCollapsed.files ? '▶' : '▼'}</span>
           </div>
 
           {!sectionsCollapsed.files && (
             <>
-              <input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)}
-                style={{ background: '#334155', border: 'none', borderRadius: 6, padding: '6px 10px', color: '#f1f5f9', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <input
+                placeholder="Cerca..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ background: '#334155', border: 'none', borderRadius: 6, padding: '6px 10px', color: '#f1f5f9', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }}
+              />
 
               <div style={{ flex: 1, overflowY: 'auto', maxHeight: 340, display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {sidebarFiles
@@ -463,15 +478,20 @@ export default function MainView() {
                   .map(file => {
                     const isSelected   = selectedFiles.includes(file.filename);
                     const isValidating = ensureSet(validating).has(file.filename);
-                    const errCount     = file.validation?.errors?.length || 0;
+                    const errCount     = file.validation?.errors?.length  || 0;
                     const warnCount    = file.validation?.warnings?.length || 0;
                     const inRegistry   = file.entityID && registryCache[file.entityID]?.exists;
                     return (
-                      <div key={file.filename}
+                      <div
+                        key={file.filename}
                         onClick={() => toggleFileSelection(file.filename)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, cursor: 'pointer',
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '6px 8px', borderRadius: 6, cursor: 'pointer',
                           background: isSelected ? '#2563eb' : '#334155',
-                          border: isSelected ? '1px solid #3b82f6' : inRegistry ? '1px solid #7c3aed' : '1px solid transparent' }}>
+                          border: isSelected ? '1px solid #3b82f6' : inRegistry ? '1px solid #7c3aed' : '1px solid transparent',
+                        }}
+                      >
                         <input type="checkbox" checked={isSelected} readOnly onClick={e => e.stopPropagation()} />
                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
                           {file.filename}
@@ -498,29 +518,37 @@ export default function MainView() {
 
               {/* Selezione rapida */}
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <select defaultValue="" onChange={async e => {
-                  const val = e.target.value; if (!val) return;
-                  if (val === 'all')      selectAll();
-                  if (val === 'none')     deselectAll();
-                  if (val === 'invert') {
-                    const allSel = files.every(f => selectedFiles.includes(f.filename));
-                    allSel ? deselectAll() : selectAll();
-                  }
-                  if (val === 'errors')
-                    setSelectedFiles(files.filter(f => f.validation?.errors?.length > 0).map(f => f.filename));
-                  if (val === 'noerrors')
-                    setSelectedFiles(files.filter(f => f.validation && f.validation.errors?.length === 0).map(f => f.filename));
-                  if (val === 'registry') {
-                    await Promise.all(files.filter(f => f.entityID && !registryCache[f.entityID]).map(f => loadRegistryData(f.entityID)));
-                    setSelectedFiles(prev => {
-                      const sp    = Array.isArray(prev) ? prev : [];
-                      const inReg = files.filter(f => f.entityID && registryCache[f.entityID]?.exists).map(f => f.filename);
-                      const allIn = inReg.every(fn => sp.includes(fn));
-                      return allIn ? sp.filter(fn => !inReg.includes(fn)) : [...new Set([...sp, ...inReg])];
-                    });
-                  }
-                  e.target.value = '';
-                }} style={{ flex: 1, background: '#334155', color: '#f1f5f9', border: '1px solid #475569', borderRadius: 6, padding: '6px 8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                <select
+                  defaultValue=""
+                  onChange={async e => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    if (val === 'all')     selectAll();
+                    if (val === 'none')    deselectAll();
+                    if (val === 'invert') {
+                      const allSel = files.every(f => selectedFiles.includes(f.filename));
+                      allSel ? deselectAll() : selectAll();
+                    }
+                    if (val === 'errors')
+                      setSelectedFiles(files.filter(f => f.validation?.errors?.length > 0).map(f => f.filename));
+                    if (val === 'noerrors')
+                      setSelectedFiles(files.filter(f => f.validation && f.validation.errors?.length === 0).map(f => f.filename));
+                    if (val === 'registry') {
+                      await Promise.all(
+                        files.filter(f => f.entityID && !registryCache[f.entityID])
+                             .map(f => loadRegistryData(f.entityID))
+                      );
+                      setSelectedFiles(prev => {
+                        const sp    = Array.isArray(prev) ? prev : [];
+                        const inReg = files.filter(f => f.entityID && registryCache[f.entityID]?.exists).map(f => f.filename);
+                        const allIn = inReg.every(fn => sp.includes(fn));
+                        return allIn ? sp.filter(fn => !inReg.includes(fn)) : [...new Set([...sp, ...inReg])];
+                      });
+                    }
+                    e.target.value = '';
+                  }}
+                  style={{ flex: 1, background: '#334155', color: '#f1f5f9', border: '1px solid #475569', borderRadius: 6, padding: '6px 8px', fontSize: '0.8rem', cursor: 'pointer' }}
+                >
                   <option value="" disabled>⚡ Selezione rapida…</option>
                   <option value="all">☑ Tutti ({files.length})</option>
                   <option value="none">☐ Nessuno</option>
@@ -582,31 +610,35 @@ export default function MainView() {
                   <thead>
                     <tr>
                       <th style={S.th({ width: 36 })}></th>
-                      <th style={S.sortTh('filename')}    onClick={() => handleSort('filename')}>Nome File{sortArrow('filename')}</th>
+                      <th style={S.sortTh('filename')}       onClick={() => handleSort('filename')}>Nome File{sortArrow('filename')}</th>
                       <th style={S.sortTh('organizationName')} onClick={() => handleSort('organizationName')}>Organizzazione{sortArrow('organizationName')}</th>
                       <th style={S.th()}>Entity ID</th>
-                      <th style={S.sortTh('creationDate')} onClick={() => handleSort('creationDate')}>Data{sortArrow('creationDate')}</th>
+                      <th style={S.sortTh('creationDate')}   onClick={() => handleSort('creationDate')}>Data{sortArrow('creationDate')}</th>
                       <th style={S.th()}>Validazione</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedFiles.map(file => {
-                      const safeExpanded  = Array.isArray(expandedRows) ? expandedRows : [];
-                      const isExpanded    = safeExpanded.includes(file.filename);
-                      const isValidating  = ensureSet(validating).has(file.filename);
-                      const registry      = file.entityID ? registryCache[file.entityID] : null;
-                      const certCacheKey  = file.filename && file.entityID ? `${file.filename}::${file.entityID}` : file.entityID;
-                      const certInfo      = certCacheKey ? certificateCache[certCacheKey] : null;
-                      const certLoading   = file.entityID ? ensureSet(certificateLoading).has(file.entityID) : false;
-                      const valErrors     = Array.isArray(file?.validation?.errors)   ? file.validation.errors   : [];
-                      const valWarnings   = Array.isArray(file?.validation?.warnings) ? file.validation.warnings : [];
-                      const certErrors    = Array.isArray(certInfo?.errors) ? certInfo.errors : [];
+                      const safeExpanded = Array.isArray(expandedRows) ? expandedRows : [];
+                      const isExpanded   = safeExpanded.includes(file.filename);
+                      const isValidating = ensureSet(validating).has(file.filename);
+                      const registry     = file.entityID ? registryCache[file.entityID] : null;
+                      const certCacheKey = file.filename && file.entityID
+                        ? `${file.filename}::${file.entityID}`
+                        : file.entityID;
+                      const certInfo     = certCacheKey ? certificateCache[certCacheKey] : null;
+                      const certLoading  = file.entityID ? ensureSet(certificateLoading).has(file.entityID) : false;
+                      const valErrors    = Array.isArray(file?.validation?.errors)   ? file.validation.errors   : [];
+                      const valWarnings  = Array.isArray(file?.validation?.warnings) ? file.validation.warnings : [];
+                      const certErrors   = Array.isArray(certInfo?.errors)           ? certInfo.errors           : [];
 
                       return (
                         <React.Fragment key={file.filename}>
                           {/* ── riga principale ── */}
-                          <tr onClick={() => toggleRowExpansion(file.filename)}
-                            style={{ cursor: 'pointer', background: isExpanded ? '#f0f9ff' : '#fff' }}>
+                          <tr
+                            onClick={() => toggleRowExpansion(file.filename)}
+                            style={{ cursor: 'pointer', background: isExpanded ? '#f0f9ff' : '#fff' }}
+                          >
                             <td style={{ ...S.td, textAlign: 'center', fontWeight: 700, color: '#3b82f6' }}>
                               {isExpanded ? '−' : '+'}
                             </td>
@@ -614,7 +646,10 @@ export default function MainView() {
                             <td style={S.td}>{file.organizationName || <span style={{ color: '#9ca3af' }}>N/A</span>}</td>
                             <td style={S.td}>
                               <span style={{ fontSize: '0.76rem', color: '#6b7280' }}>
-                                {file.entityID ? `${file.entityID.substring(0, 45)}…` : <span style={{ color: '#9ca3af' }}>N/A</span>}
+                                {file.entityID
+                                  ? `${file.entityID.substring(0, 45)}…`
+                                  : <span style={{ color: '#9ca3af' }}>N/A</span>
+                                }
                               </span>
                             </td>
                             <td style={S.td}>
@@ -638,9 +673,12 @@ export default function MainView() {
                                   <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 6, background: '#ecfdf3', borderLeft: '4px solid #16a34a', color: '#166534', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 12 }}>
                                     <span>✅ EntityID presente nel registro SPID</span>
                                     {registry.registry_link && (
-                                      <a href={registry.registry_link} target="_blank" rel="noopener noreferrer"
+                                      <a
+                                        href={registry.registry_link}
+                                        target="_blank" rel="noopener noreferrer"
                                         onClick={e => e.stopPropagation()}
-                                        style={{ color: '#15803d', fontWeight: 600, textDecoration: 'none' }}>
+                                        style={{ color: '#15803d', fontWeight: 600, textDecoration: 'none' }}
+                                      >
                                         🔗 Scheda registro
                                       </a>
                                     )}
@@ -663,18 +701,22 @@ export default function MainView() {
                                     {[
                                       ['Nome file',
                                         !registry?.exists
-                                          ? <button onClick={e => { e.stopPropagation(); handleViewXml(file.filename); }}
-                                              style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: '0.85rem' }}>
+                                          ? (
+                                            <button
+                                              onClick={e => { e.stopPropagation(); handleViewXml(file.filename); }}
+                                              style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: '0.85rem' }}
+                                            >
                                               {file.filename}
                                             </button>
+                                          )
                                           : file.filename
                                       ],
-                                      ['EntityID',      file.entityID        || 'N/D'],
+                                      ['EntityID',       file.entityID        || 'N/D'],
                                       ['Organizzazione', file.organizationName || 'N/D'],
                                       ['Data creazione', file.creationDate
                                         ? new Date(registry?.createDate || file.creationDate).toLocaleString('it-IT')
                                         : 'N/D'],
-                                      ['Data modifica', file.modificationDate
+                                      ['Data modifica',  file.modificationDate
                                         ? new Date(registry?.lastUpdateDate || file.modificationDate).toLocaleString('it-IT')
                                         : 'N/D'],
                                       ['Dimensione', file.size ? `${(file.size / 1024).toFixed(1)} KB` : 'N/D'],
@@ -798,8 +840,11 @@ export default function MainView() {
                   <button style={S.btn('#f1f5f9', '#374151')} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
                     Succ. →
                   </button>
-                  <select value={resultsPerPage} onChange={e => { setResultsPerPage(Number(e.target.value)); setPage(1); }}
-                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '0.85rem' }}>
+                  <select
+                    value={resultsPerPage}
+                    onChange={e => { setResultsPerPage(Number(e.target.value)); setPage(1); }}
+                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '0.85rem' }}
+                  >
                     {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n} / pag.</option>)}
                   </select>
                 </div>
@@ -811,10 +856,14 @@ export default function MainView() {
 
       {/* ─── MODAL XML ────────────────────────────────────── */}
       {xmlModalContent && (
-        <div onClick={() => setXmlModalContent(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 10, padding: 24, width: '80vw', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}>
+        <div
+          onClick={() => setXmlModalContent(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 10, padding: 24, width: '80vw', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <strong>{xmlModalContent.filename}</strong>
               <button onClick={() => setXmlModalContent(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>

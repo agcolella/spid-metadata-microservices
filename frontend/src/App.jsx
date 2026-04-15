@@ -2,8 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { LoginView } from './views/LoginView';
-import { MainView } from './views/MainView';
-import { PRHistoryView } from './views/PRHistoryView';
+import MainView from './views/MainView';
+import PRHistoryView  from './views/PRHistoryView';
 import { ForceChangePasswordModal } from './components/ForceChangePasswordModal';
 import { TOKEN_KEY } from './constants';
 

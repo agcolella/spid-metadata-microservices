@@ -91,7 +91,7 @@ app.post('/preview', async (req, res) => {
       return res.status(400).json({ error: 'files obbligatorio e non vuoto' });
     const token = req.headers.authorization?.split(' ')[1]; // ← aggiunta
     // 1. Leggi contenuti da file-service
-    const contents = await getFileContents(files);
+    const contents = await getFileContents(files, token);
     const validFiles = contents.filter(f => f.success);
 
     // 2. Valida batch
@@ -153,7 +153,7 @@ app.post('/create', async (req, res) => {
 
     // 2. Leggi contenuti
     const contents   = await getFileContents(files, token);
-    const validFiles = contents.filter(f => f.success, token);
+    const validFiles = contents.filter(f => f.success);
     if (!validFiles.length)
       return res.status(400).json({ error: 'Nessun file leggibile' });
 

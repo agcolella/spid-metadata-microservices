@@ -10,7 +10,7 @@ export const API = {
   fileValidate:   (f) => `${API_BASE}/api/files/files/${encodeURIComponent(f)}/validate`,
   deleteFiles:    `${API_BASE}/api/files/delete-xml-files`,
   validateGithub: `${API_BASE}/api/github/validate`,
-  previewPR:      `${API_BASE}/api/pr/preview`,
+  previewPR:      `${API_BASE}/api/preview`,
   createPR:       `${API_BASE}/api/pr/create`,
   prStatus:       (n) => `${API_BASE}/api/pr/status/${n}`,
   login:          `${API_BASE}/api/auth/login`,

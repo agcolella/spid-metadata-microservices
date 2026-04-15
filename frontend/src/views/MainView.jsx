@@ -700,18 +700,12 @@ export default function MainView() {
                                   <tbody>
                                     {[
                                       ['Nome file',
-                                        !registry?.exists
-                                          ? (
-                                            <button
-                                              onClick={e => { e.stopPropagation(); handleViewXml(file.filename); }}
-                                              style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: '0.85rem' }}
-                                            >
-                                              {file.filename}
-                                            </button>
-                                          )
-                                          : file.filename
-                                      ],
-                                      ['EntityID',       file.entityID        || 'N/D'],
+                                        <button onClick={e => { e.stopPropagation(); handleViewXml(file.filename); }}
+                                          style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer',
+                                            textDecoration: 'underline', padding: 0, fontSize: '0.85rem' }}>
+                                          {file.filename}
+                                        </button>
+                                      ],                                      ['EntityID',       file.entityID        || 'N/D'],
                                       ['Organizzazione', file.organizationName || 'N/D'],
                                       ['Data creazione', file.creationDate
                                         ? new Date(registry?.createDate || file.creationDate).toLocaleString('it-IT')
@@ -735,27 +729,59 @@ export default function MainView() {
                                       <td style={{ padding: '5px 0', color: '#1e293b' }}>
                                         {certLoading && <span>Verifica certificato in corso...</span>}
                                         {!certLoading && certInfo?.certificate && (
-                                          <details style={{ border: '1px solid #d1d5db', borderRadius: 6, padding: 8, marginTop: 4 }}>
-                                            <summary style={{ cursor: 'pointer', fontWeight: 600, listStyle: 'none' }}>
-                                              {certInfo.valid ? '✅ Certificato valido' : '❌ Certificato non valido'}
-                                            </summary>
-                                            <div style={{ marginTop: 8, paddingLeft: 12, fontSize: '0.82rem' }}>
-                                              <div><strong>Not Before:</strong> {certInfo.certificate.notBefore || 'N/D'}</div>
-                                              <div><strong>Not After:</strong>  {certInfo.certificate.notAfter  || 'N/D'}</div>
-                                              <div><strong>Subject:</strong>    {certInfo.certificate.subject   || 'N/D'}</div>
-                                              <div><strong>Issuer:</strong>     {certInfo.certificate.issuer    || 'N/D'}</div>
-                                              {certErrors.length > 0 && (
-                                                <div style={{ marginTop: 6, color: '#991b1b' }}>
-                                                  <strong>Errori:</strong>
-                                                  <ul style={{ margin: '2px 0', paddingLeft: 16 }}>
-                                                    {certErrors.map((e, i) => (
-                                                      <li key={i}>{typeof e === 'string' ? e : JSON.stringify(e)}</li>
-                                                    ))}
-                                                  </ul>
+                                          <>
+                                            {certInfo.source === 'registry' && certInfo.valid && (
+                                              <div style={{ marginBottom: 8, padding: '8px 12px', borderRadius: 6,
+                                                background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+                                                border: '1px solid #86efac', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <span style={{ fontSize: '1.1rem' }}>🏛️</span>
+                                                <div>
+                                                  <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.85rem' }}>
+                                                    Certificato verificato nel registro SPID
+                                                  </div>
+                                                  <div style={{ color: '#166534', fontSize: '0.78rem' }}>
+                                                    Il certificato corrisponde a quello pubblicato ufficialmente da AgID
+                                                  </div>
                                                 </div>
-                                              )}
-                                            </div>
-                                          </details>
+                                                <span style={{ marginLeft: 'auto', background: '#16a34a', color: '#fff',
+                                                  borderRadius: 99, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 700 }}>
+                                                  UFFICIALE
+                                                </span>
+                                              </div>
+                                            )}
+                                            <details style={{ border: '1px solid #d1d5db', borderRadius: 6, padding: 8,
+                                              marginTop: certInfo.source === 'registry' && certInfo.valid ? 0 : 4 }}>
+                                              <summary style={{ cursor: 'pointer', fontWeight: 600, listStyle: 'none' }}>
+                                                {certInfo.valid ? '✅ Certificato valido' : '❌ Certificato non valido'}
+                                                {certInfo.source === 'registry' && (
+                                                  <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#15803d', fontWeight: 400 }}>
+                                                    (dal registro SPID)
+                                                  </span>
+                                                )}
+                                                {certInfo.source === 'xml' && (
+                                                  <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#64748b', fontWeight: 400 }}>
+                                                    (da XML locale)
+                                                  </span>
+                                                )}
+                                              </summary>
+                                              <div style={{ marginTop: 8, paddingLeft: 12, fontSize: '0.82rem' }}>
+                                                <div><strong>Not Before:</strong> {certInfo.certificate.notBefore || 'N/D'}</div>
+                                                <div><strong>Not After:</strong>  {certInfo.certificate.notAfter  || 'N/D'}</div>
+                                                <div><strong>Subject:</strong>    {certInfo.certificate.subject   || 'N/D'}</div>
+                                                <div><strong>Issuer:</strong>     {certInfo.certificate.issuer    || 'N/D'}</div>
+                                                {certErrors.length > 0 && (
+                                                  <div style={{ marginTop: 6, color: '#991b1b' }}>
+                                                    <strong>Errori:</strong>
+                                                    <ul style={{ margin: '2px 0', paddingLeft: 16 }}>
+                                                      {certErrors.map((e, i) => (
+                                                        <li key={i}>{typeof e === 'string' ? e : JSON.stringify(e)}</li>
+                                                      ))}
+                                                    </ul>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </details>
+                                          </>
                                         )}
                                         {!certLoading && certInfo?.error && (
                                           <span style={{ color: '#991b1b' }}>{certInfo.error}</span>

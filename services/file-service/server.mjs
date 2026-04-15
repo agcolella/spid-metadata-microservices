@@ -3,7 +3,7 @@ import cors             from 'cors';
 import multer           from 'multer';
 import http             from 'http';
 import { createClient } from '@libsql/client';
-import axios from 'axios';
+
 
 const PORT = process.env.FILE_SERVICE_PORT || 4001;
 

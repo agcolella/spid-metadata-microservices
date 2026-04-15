@@ -14,7 +14,7 @@ app.get('/health', (_, res) =>
 );
 
 // Nel validation-service/server.mjs
-app.post('/validate', requireAuth, async (req, res) => {
+app.post('/validate', async (req, res) => {
   try {
     const { content, filename, profile } = req.body;
     const validator = new SpidMetadataValidator({ production: PRODUCTION });

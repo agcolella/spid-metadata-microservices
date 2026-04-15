@@ -470,6 +470,7 @@ async test_CertificateExpiry(xmlString) {
 async validate(xmlString, profile = 'spid_sp_public') {
   this.errors   = [];
   this.warnings = [];
+
   try { this.load(xmlString); }
   catch (e) {
     return {
@@ -479,9 +480,23 @@ async validate(xmlString, profile = 'spid_sp_public') {
     };
   }
 
-  (profileMap[profile] ?? profileMap['spid_sp_public'])();  // tuo codice esistente
+  // ← aggiungi questo blocco che mancava
+  const profileMap = {
+    saml2core:       () => this.runProfileSaml2Core(),
+    spid_sp:         () => this.runProfileSpidSP(),
+    spid_sp_public:  () => this.runProfileSpidSPPublic(),
+    spid_sp_private: () => this.runProfileSpidSPPrivate(),
+    ag_public_full:  () => this.runProfileAggregatorPublicFull(),
+    ag_public_lite:  () => this.runProfileAggregatorPublicLite(),
+    ag_private_full: () => this.runProfileAggregatorPrivateFull(),
+    ag_private_lite: () => this.runProfileAggregatorPrivateLite(),
+    op_public_full:  () => this.runProfileOperatorPublicFull(),
+    op_public_lite:  () => this.runProfileOperatorPublicLite(),
+  };
 
-  await this.test_CertificateExpiry(xmlString);  // ← nuovo
+  (profileMap[profile] ?? profileMap['spid_sp_public'])();
+
+  await this.test_CertificateExpiry(xmlString);
 
   return {
     valid:            this.errors.length === 0,

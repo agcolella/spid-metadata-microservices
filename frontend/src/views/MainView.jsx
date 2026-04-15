@@ -60,7 +60,7 @@ export default function MainView() {
   const [prStep,             setPrStep]             = useState(0);
   const [githubValid,        setGithubValid]        = useState(null);
   const [expandedRows,       setExpandedRows]       = useState([]);
-  const [errorFilterMode,    setErrorFilterMode]    = useState('all');
+  const [errorFilterMode] = useState('all');
   const [xmlModalContent,    setXmlModalContent]    = useState(null);
   const [sectionsCollapsed,  setSectionsCollapsed]  = useState({ upload: false, files: false });
   const [validFilesForPR,    setValidFilesForPR]    = useState([]);

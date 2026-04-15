@@ -5,7 +5,7 @@ import { LoginView } from './views/LoginView';
 import MainView from './views/MainView';
 import PRHistoryView  from './views/PRHistoryView';
 import { ForceChangePasswordModal } from './components/ForceChangePasswordModal';
-import { TOKEN_KEY } from './constants';
+//import { TOKEN_KEY } from './constants';
 
 export default function App() {
   const { token, login, logout, mustChangePassword, passwordChanged } = useAuth();

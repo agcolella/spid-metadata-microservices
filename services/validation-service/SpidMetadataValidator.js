@@ -5,10 +5,6 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as constants from './constants.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const xsdDoc = libxmljs.parseXml(
-  readFileSync(join(__dirname, 'schemas/saml-schema-metadata-2.0.xsd'), 'utf8')
-);
 
 function stripNamespaces(xmlString) {
   return xmlString

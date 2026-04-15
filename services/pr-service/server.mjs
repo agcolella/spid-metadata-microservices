@@ -120,10 +120,10 @@ app.post('/preview', async (req, res) => {
       organizations: orgList,
       validation:   { errors: allErrors, warnings: allWarnings, duplicates }
     });
-  } catch (e) {
-    console.error('Errore preview PR:', e.message);
-    res.status(500).json({ error: e.message });
-  }
+    } catch (e) {
+      console.error('Errore preview PR:', e.message, e.stack, JSON.stringify(e));
+      res.status(500).json({ error: e.message || JSON.stringify(e) });
+    }
 });
 
 // ── POST /create ──────────────────────────────────────────

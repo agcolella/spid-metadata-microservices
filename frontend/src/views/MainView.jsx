@@ -198,11 +198,11 @@ export default function MainView() {
         valid: false,
         error: err.response?.data?.error || err.message || 'Errore verifica certificato',
       };
-    setCertificateCache(prev => {
-      const next = { ...(typeof prev === 'object' ? prev : {}) };
-      next[cacheKey] = res.data;
-      return next;
-    });
+        setCertificateCache(prev => {
+          const next = { ...(typeof prev === 'object' ? prev : {}) };
+          next[cacheKey] = res.data;
+          return next;
+        });
       return data;
     } finally {
       setCertificateLoading(prev => { const s = ensureSet(prev); s.delete(entityId); return new Set(s); });

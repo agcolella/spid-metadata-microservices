@@ -168,10 +168,11 @@ export default function MainView() {
         getAuthHeaders()
       );
 
-      setCertificateCache(prev => ({
-        ...(typeof prev === 'object' ? prev : {}),
-        [cacheKey]: res.data,
-      }));
+      setCertificateCache(prev => {
+        const next = { ...(typeof prev === 'object' ? prev : {}) };
+        next[cacheKey] = res.data;
+        return next;
+      });
 
       if (!res.data.valid) {
         const certErrors = (res.data.errors || []).map(e => ({
@@ -197,10 +198,11 @@ export default function MainView() {
         valid: false,
         error: err.response?.data?.error || err.message || 'Errore verifica certificato',
       };
-      setCertificateCache(prev => ({
-        ...(typeof prev === 'object' ? prev : {}),
-        [cacheKey]: data,
-      }));
+    setCertificateCache(prev => {
+      const next = { ...(typeof prev === 'object' ? prev : {}) };
+      next[cacheKey] = res.data;
+      return next;
+    });
       return data;
     } finally {
       setCertificateLoading(prev => { const s = ensureSet(prev); s.delete(entityId); return new Set(s); });

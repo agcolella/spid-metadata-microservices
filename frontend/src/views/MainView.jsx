@@ -5,7 +5,7 @@ import { notify } from '../services/notificationService';
 import { PRPreviewModal } from '../components/PRPreviewModal';
 import { ProgressTracker } from '../components/ProgressTracker';
 import { ValidationBadge } from '../components/ValidationBadge';
-import UserManagementPage from './UserManagement';
+import UserManagementPage from './UserManagementView';
 
 const API_BASE  = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'spid_token';

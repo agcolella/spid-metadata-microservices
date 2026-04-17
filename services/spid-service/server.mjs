@@ -147,7 +147,6 @@ app.post('/spid/acs',
 // ── Route: metadata SP (necessario per federazione AgID) ──────
 // GET /spid/metadata
 app.get('/spid/metadata', (req, res) => {
-  // Genera XML metadata del Service Provider
   const metadata = `<?xml version="1.0"?>
 <md:EntityDescriptor
   xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
@@ -172,6 +171,10 @@ app.get('/spid/metadata', (req, res) => {
       </ds:X509Data></ds:KeyInfo>
     </md:KeyDescriptor>
 
+    <md:SingleLogoutService
+      Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+      Location="${process.env.SP_ENTITY_ID}/logout"/>
+
     <md:AssertionConsumerService
       Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
       Location="${process.env.SP_ACS_URL}"
@@ -179,7 +182,7 @@ app.get('/spid/metadata', (req, res) => {
       isDefault="true"/>
 
     <md:AttributeConsumingService index="0">
-      <md:ServiceName xml:lang="it">Accesso SPID</md:ServiceName>
+      <md:ServiceName xml:lang="it">${process.env.SP_ORG_DISPLAY_NAME || 'Servizio SPID'}</md:ServiceName>
       <md:RequestedAttribute Name="spidCode"     NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic" isRequired="true"/>
       <md:RequestedAttribute Name="fiscalNumber" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic" isRequired="true"/>
       <md:RequestedAttribute Name="name"         NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic" isRequired="true"/>
@@ -188,6 +191,24 @@ app.get('/spid/metadata', (req, res) => {
     </md:AttributeConsumingService>
 
   </md:SPSSODescriptor>
+
+  <!-- OBBLIGATORIO per SPID -->
+  <md:Organization>
+    <md:OrganizationName xml:lang="it">${process.env.SP_ORG_NAME || 'Nome Ente'}</md:OrganizationName>
+    <md:OrganizationDisplayName xml:lang="it">${process.env.SP_ORG_DISPLAY_NAME || 'Nome Ente Visualizzato'}</md:OrganizationDisplayName>
+    <md:OrganizationURL xml:lang="it">${process.env.SP_ORG_URL || 'https://www.example.it'}</md:OrganizationURL>
+  </md:Organization>
+
+  <!-- OBBLIGATORIO per SPID -->
+  <md:ContactPerson contactType="other">
+    <md:Extensions xmlns:spid="https://spid.gov.it/saml-extensions">
+      <spid:IPACode>${process.env.SP_IPA_CODE || 'IPACODE'}</spid:IPACode>
+      <spid:VATNumber>${process.env.SP_VAT_NUMBER || ''}</spid:VATNumber>
+      <spid:Private/>
+    </md:Extensions>
+    <md:EmailAddress>${process.env.SP_CONTACT_EMAIL || 'admin@example.it'}</md:EmailAddress>
+  </md:ContactPerson>
+
 </md:EntityDescriptor>`;
 
   res.header('Content-Type', 'application/xml');

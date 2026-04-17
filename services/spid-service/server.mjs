@@ -16,9 +16,13 @@ const app       = express();
 const PORT      = process.env.PORT || 4008;
 
 // ── Leggi certificati SP ──────────────────────────────────────
-const SP_KEY  = fs.readFileSync(path.resolve(__dirname, process.env.SP_KEY_PATH));
-const SP_CERT = fs.readFileSync(path.resolve(__dirname, process.env.SP_CERT_PATH), 'utf8')
-  .replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\n/g, '');
+// In server.mjs — già presente nella guida, verifica che sia così
+const SP_KEY  = fs.readFileSync(
+  path.resolve(process.env.SP_KEY_PATH)   // ← path assoluto /etc/secrets/sp-key.pem
+);
+const SP_CERT = fs.readFileSync(
+  path.resolve(__dirname, process.env.SP_CERT_PATH), 'utf8'  // ← relativo al progetto
+).replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\n/g, '');
 
 // ── Lista IdP SPID (produzione: tutti gli IdP federati) ───────
 // In sviluppo usa spid-testenv2 in locale o staging

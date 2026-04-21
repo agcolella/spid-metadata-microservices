@@ -1,24 +1,24 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { TOKEN_KEY } from '../constants';
 
 export function useAuth() {
   const [token, setToken]               = useState(localStorage.getItem(TOKEN_KEY));
   const [mustChangePassword, setMustChange] = useState(false);
 
-  const login = (t, rt, mustChange = false) => {
+  const login = useCallback((t, rt, mustChange = false) => {
     localStorage.setItem(TOKEN_KEY, t);
     if (rt) localStorage.setItem('spid_refresh_token', rt);
     setToken(t);
     setMustChange(mustChange);
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setMustChange(false);
-  };
+  }, []);
 
-  const passwordChanged = () => setMustChange(false);
+  const passwordChanged = useCallback(() => setMustChange(false), []);
 
   return { token, login, logout, mustChangePassword, passwordChanged };
 }

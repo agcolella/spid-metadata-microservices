@@ -4,6 +4,7 @@ import { API } from '../constants';
 import { notify } from '../services/notificationService';
 
 const API_BASE = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
+const SPID_BASE = process.env.REACT_APP_SPID_SERVICE_URL || 'http://localhost:4008';
 const SPID_IDP = 'https://demo.spid.gov.it';
 
 export function LoginView({ onLogin }) {
@@ -27,7 +28,7 @@ export function LoginView({ onLogin }) {
   };
 
   const handleSpidLogin = () => {
-    window.location.href = `${API_BASE}/spid/login?idp=${encodeURIComponent(SPID_IDP)}`;
+    window.location.href = `${SPID_BASE}/spid/login?idp=${encodeURIComponent(SPID_IDP)}`;
   };
 
   return (

@@ -12,6 +12,7 @@ const PR_SVC     = process.env.PR_SERVICE_URL         || 'http://localhost:4004'
 const BATCH_SVC  = process.env.BATCH_SERVICE_URL      || 'http://localhost:4005';
 const BACKOFFICE_SVC = process.env.BACKOFFICE_SERVICE_URL || 'http://localhost:4006';
 const CERT_SVC = process.env.CERTIFICATE_SERVICE_URL || 'http://localhost:4007';
+const SPID_SVC = process.env.SPID_SERVICE_URL || 'http://localhost:4008';
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
@@ -126,6 +127,41 @@ async function authMiddleware(req, res, next) {
     return res.status(status).json({ error: e.response?.data?.error || 'Errore autorizzazione' });
   }
 }
+// ── SPID routes — PUBBLICHE, prima di authMiddleware ─────────
+// Il flusso SAML richiede redirect e POST non autenticati
+app.use('/spid', async (req, res) => {
+  const axios   = (await import('axios')).default;
+  const subPath = req.originalUrl || '/';
+  const targetUrl = SPID_SVC + subPath;
+
+  try {
+    const response = await axios({
+      method:          req.method,
+      url:             targetUrl,
+      data:            req.body,
+      headers: {
+        'content-type': req.headers['content-type'] || 'application/json',
+      },
+      maxRedirects:    0,           // non seguire redirect — li passiamo al browser
+      validateStatus:  () => true,  // accetta tutti gli status
+    });
+
+    // Copia gli header (incluso Location per i redirect SAML)
+    Object.entries(response.headers).forEach(([k, v]) => {
+      if (!['transfer-encoding', 'connection'].includes(k)) res.setHeader(k, v);
+    });
+
+    res.status(response.status);
+
+    if (typeof response.data === 'string') {
+      res.send(response.data);
+    } else {
+      res.json(response.data);
+    }
+  } catch (e) {
+    res.status(502).json({ error: 'SPID service non raggiungibile', detail: e.message });
+  }
+});
 
 app.use(authMiddleware);
 

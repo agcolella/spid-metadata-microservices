@@ -4,11 +4,17 @@ import { useAuth } from './hooks/useAuth';
 import { LoginView } from './views/LoginView';
 import MainView from './views/MainView';
 import PRHistoryView  from './views/PRHistoryView';
+import SpidCallbackView from './views/SpidCallbackView';
 import { ForceChangePasswordModal } from './components/ForceChangePasswordModal';
-//import { TOKEN_KEY } from './constants';
 
 export default function App() {
   const { token, login, logout, mustChangePassword, passwordChanged } = useAuth();
+
+  // Gestisci il callback SPID prima del check token
+  // (la pagina /auth/callback deve essere accessibile anche senza token)
+  if (window.location.pathname === '/auth/callback') {
+    return <SpidCallbackView onLogin={login} />;
+  }
 
   if (!token) return <LoginView onLogin={login} />;
 

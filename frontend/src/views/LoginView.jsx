@@ -3,7 +3,7 @@ import axios from '../services/api';
 import { API } from '../constants';
 import { notify } from '../services/notificationService';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
 const SPID_IDP = 'https://demo.spid.gov.it';
 
 export function LoginView({ onLogin }) {

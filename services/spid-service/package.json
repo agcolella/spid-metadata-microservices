@@ -18,6 +18,7 @@
     "express-session": "^1.19.0",
     "jsonwebtoken": "^9.0.3",
     "passport": "^0.7.0",
-    "passport-saml": "^3.2.4"
+    "passport-saml": "^3.2.4",
+    "xml-crypto": "^6.1.2"
   }
 }

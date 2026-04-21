@@ -8,6 +8,7 @@ import fs             from 'fs';
 import path           from 'path';
 import { fileURLToPath } from 'url';
 import dotenv         from 'dotenv';
+import { SignedXml } from 'xml-crypto';
 
 dotenv.config();
 
@@ -147,7 +148,7 @@ app.post('/spid/acs',
 // ── Route: metadata SP (necessario per federazione AgID) ──────
 // GET /spid/metadata
 app.get('/spid/metadata', (req, res) => {
-  const metadata = `<?xml version="1.0"?>
+  const unsignedMetadata = `<?xml version="1.0"?>
 <md:EntityDescriptor
   xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
   xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
@@ -192,27 +193,52 @@ app.get('/spid/metadata', (req, res) => {
 
   </md:SPSSODescriptor>
 
-  <!-- OBBLIGATORIO per SPID -->
   <md:Organization>
     <md:OrganizationName xml:lang="it">${process.env.SP_ORG_NAME || 'Nome Ente'}</md:OrganizationName>
     <md:OrganizationDisplayName xml:lang="it">${process.env.SP_ORG_DISPLAY_NAME || 'Nome Ente Visualizzato'}</md:OrganizationDisplayName>
     <md:OrganizationURL xml:lang="it">${process.env.SP_ORG_URL || 'https://www.example.it'}</md:OrganizationURL>
   </md:Organization>
 
-  <!-- OBBLIGATORIO per SPID -->
   <md:ContactPerson contactType="other">
     <md:Extensions xmlns:spid="https://spid.gov.it/saml-extensions">
-      <spid:IPACode>${process.env.SP_IPA_CODE || 'IPACODE'}</spid:IPACode>
-      <spid:VATNumber>${process.env.SP_VAT_NUMBER || ''}</spid:VATNumber>
-      <spid:Private/>
+      <spid:IPACode>${process.env.SP_IPA_CODE || 'DEMO'}</spid:IPACode>
+      ${process.env.SP_VAT_NUMBER ? `<spid:VATNumber>${process.env.SP_VAT_NUMBER}</spid:VATNumber>` : ''}
+      <spid:Public/>
     </md:Extensions>
     <md:EmailAddress>${process.env.SP_CONTACT_EMAIL || 'admin@example.it'}</md:EmailAddress>
   </md:ContactPerson>
 
 </md:EntityDescriptor>`;
 
-  res.header('Content-Type', 'application/xml');
-  res.send(metadata);
+  try {
+    const sig = new SignedXml({ privateKey: SP_KEY });
+
+    sig.addReference({
+      xpath: "//*[local-name(.)='EntityDescriptor']",
+      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
+      transforms: [
+        'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+        'http://www.w3.org/2001/10/xml-exc-c14n#',
+      ],
+    });
+
+    sig.canonicalizationAlgorithm = 'http://www.w3.org/2001/10/xml-exc-c14n#';
+    sig.signatureAlgorithm        = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+
+    sig.computeSignature(unsignedMetadata, {
+      location: {
+        reference: "//*[local-name(.)='SPSSODescriptor']",
+        action:    'before',  // Signature prima di SPSSODescriptor — obbligatorio SPID
+      },
+    });
+
+    res.header('Content-Type', 'application/xml');
+    res.send(sig.getSignedXml());
+
+  } catch (err) {
+    console.error('Errore firma metadata:', err.message);
+    res.status(500).json({ error: 'Errore nella generazione del metadata firmato' });
+  }
 });
 
 // ── Route: logout SPID (Single Logout) ───────────────────────

@@ -210,35 +210,43 @@ app.get('/spid/metadata', (req, res) => {
 
 </md:EntityDescriptor>`;
 
-  try {
-    const sig = new SignedXml({ privateKey: SP_KEY });
+try {
+  const sig = new SignedXml({ privateKey: SP_KEY });
 
-    sig.addReference({
-      xpath: "//*[local-name(.)='EntityDescriptor']",
-      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
-      transforms: [
-        'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
-        'http://www.w3.org/2001/10/xml-exc-c14n#',
-      ],
-    });
+  sig.addReference({
+    xpath: "//*[local-name(.)='EntityDescriptor']",
+    digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
+    transforms: [
+      'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+      'http://www.w3.org/2001/10/xml-exc-c14n#',
+    ],
+  });
 
-    sig.canonicalizationAlgorithm = 'http://www.w3.org/2001/10/xml-exc-c14n#';
-    sig.signatureAlgorithm        = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+  sig.canonicalizationAlgorithm = 'http://www.w3.org/2001/10/xml-exc-c14n#';
+  sig.signatureAlgorithm        = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
 
-    sig.computeSignature(unsignedMetadata, {
-      location: {
-        reference: "//*[local-name(.)='SPSSODescriptor']",
-        action:    'before',  // Signature prima di SPSSODescriptor — obbligatorio SPID
-      },
-    });
+  sig.computeSignature(unsignedMetadata, {
+    location: {
+      reference: "//*[local-name(.)='SPSSODescriptor']",
+      action:    'before',
+    },
+  });
 
-    res.header('Content-Type', 'application/xml');
-    res.send(sig.getSignedXml());
+  // Inserisci manualmente KeyInfo dentro la Signature generata
+  const keyInfoXml = `<KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#">` +
+    `<X509Data><X509Certificate>${SP_CERT}</X509Certificate></X509Data>` +
+    `</KeyInfo>`;
 
-  } catch (err) {
-    console.error('Errore firma metadata:', err.message);
-    res.status(500).json({ error: 'Errore nella generazione del metadata firmato' });
-  }
+  const signedXml = sig.getSignedXml()
+    .replace('</SignatureValue>', `</SignatureValue>${keyInfoXml}`);
+
+  res.header('Content-Type', 'application/xml');
+  res.send(signedXml);
+
+} catch (err) {
+  console.error('Errore firma metadata:', err.message);
+  res.status(500).json({ error: 'Errore nella generazione del metadata firmato' });
+}
 });
 
 // ── Route: logout SPID (Single Logout) ───────────────────────

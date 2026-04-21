@@ -5,12 +5,12 @@ export default function SpidCallbackView({ onLogin }) {
     const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
 
     if (token) {
-      window.location.hash = '';   // pulisce #token=... dalla URL
-      onLogin(token, null, false); // null = nessun refreshToken SPID, false = no mustChangePassword
+      window.location.hash = '';
+      onLogin(token, null, false);
     } else {
       window.location.href = '/login?error=spid_callback';
     }
-  }, []);
+  }, [onLogin]);   // ← aggiunto onLogin
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center',

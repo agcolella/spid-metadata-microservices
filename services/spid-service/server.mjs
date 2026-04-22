@@ -46,6 +46,7 @@ function buildStrategy(idpEntityId) {
     {
       // Service Provider
       issuer:                   process.env.SP_ENTITY_ID,
+      issuerFormat:   'urn:oasis:names:tc:SAML:2.0:nameid-format:entity',
       callbackUrl:              process.env.SP_ACS_URL,
       decryptionPvk:            SP_KEY,
       privateKey:               SP_KEY,
@@ -53,7 +54,7 @@ function buildStrategy(idpEntityId) {
       digestAlgorithm:          'sha256',
       identifierFormat:         'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
       authnContext:             ['https://www.spid.gov.it/SpidL1'], // Livello SPID L1
-      forceAuthn:               true,
+      forceAuthn:               false,
       passive:                  false,
 
       // Identity Provider

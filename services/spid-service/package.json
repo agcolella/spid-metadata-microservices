@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "start": "node patch.mjs &&node server.mjs"
+    "start": "node server.mjs",
+    "postinstall": "node patch.mjs"
   },
   "keywords": [],
   "author": "",

@@ -29,7 +29,7 @@ const SP_CERT = fs.readFileSync(
 // In sviluppo usa spid-testenv2 in locale o staging
 const IDP_LIST = {
   'https://demo.spid.gov.it': {
-    entryPoint: 'https://demo.spid.gov.it/sso',   // SSO endpoint dell'IdP Demo
+    entryPoint: 'https://demo.spid.gov.it/samlsso',   // SSO endpoint dell'IdP Demo
     cert: fs.readFileSync(
       path.resolve(__dirname, './idp-metadata/demo-idp-cert.pem'),
       'utf8'

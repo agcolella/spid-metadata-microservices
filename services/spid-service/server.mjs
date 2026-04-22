@@ -54,7 +54,7 @@ function buildStrategy(idpEntityId) {
       digestAlgorithm:          'sha256',
       identifierFormat:         'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
       authnContext:             ['https://www.spid.gov.it/SpidL1'], // Livello SPID L1
-      forceAuthn:               false,
+      forceAuthn:               true,
       passive:                  false,
 
       // Identity Provider

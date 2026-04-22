@@ -95,7 +95,12 @@ app.get('/spid/login', (req, res, next) => {
   req.session.idpEntityId = idpEntityId;
 
   passport.authenticate('saml', {
-    additionalParams: { RelayState: idpEntityId },
+    additionalParams: {
+      RelayState: JSON.stringify({
+        idp: idpEntityId,
+        returnTo: process.env.FRONTEND_URL || 'https://spid-metadata-microservices.vercel.app'
+      })
+    },
   })(req, res, next);
 });
 
@@ -103,7 +108,13 @@ app.get('/spid/login', (req, res, next) => {
 // POST /spid/acs
 app.post('/spid/acs',
   (req, res, next) => {
-    const idpEntityId = req.body.RelayState || req.session.idpEntityId;
+    let idpEntityId = req.session.idpEntityId;
+    try {
+      const relay = JSON.parse(req.body.RelayState || '{}');
+      idpEntityId = relay.idp || req.body.RelayState || req.session.idpEntityId;
+    } catch {
+      idpEntityId = req.body.RelayState || req.session.idpEntityId;
+    }
     passport.use('saml', buildStrategy(idpEntityId));
     next();
   },

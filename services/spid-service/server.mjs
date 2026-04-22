@@ -1,3 +1,18 @@
+// ── PATCH node-saml all'avvio ──────────────────────────────────
+import { readFileSync, writeFileSync } from 'fs';
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
+const samlPath = _require.resolve('passport-saml/lib/node-saml/saml.js');
+let _samlSrc = readFileSync(samlPath, 'utf8');
+if (!_samlSrc.includes('@NameQualifier')) {
+  _samlSrc = _samlSrc.replace(
+    `"saml:Issuer": {\n                    "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",\n                    "#text": this.options.issuer,\n                },\n            },\n        };\n        if (isPassive)`,
+    `"saml:Issuer": {\n                    "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",\n                    "@Format": "urn:oasis:names:tc:SAML:2.0:nameid-format:entity",\n                    "@NameQualifier": this.options.issuer,\n                    "#text": this.options.issuer,\n                },\n            },\n        };\n        if (isPassive)`
+  );
+  writeFileSync(samlPath, _samlSrc);
+  console.log('✅ node-saml patchato all\'avvio');
+}
+// ── fine patch ──────────────────────────────────────────────────
 import express        from 'express';
 import cors           from 'cors';
 import session        from 'express-session';

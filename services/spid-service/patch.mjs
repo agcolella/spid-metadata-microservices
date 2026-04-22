@@ -1,15 +1,13 @@
-import { readFileSync, writeFileSync } from 'fs';
+// services/spid-service/patch.mjs — versione semplice
+import { copyFileSync } from 'fs';
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const samlPath = require.resolve('passport-saml/lib/node-saml/saml.js');
-let src = readFileSync(samlPath, 'utf8');
-if (!src.includes('@NameQualifier')) {
-  src = src.replace(
-    `"saml:Issuer": {\n                    "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",\n                    "#text": this.options.issuer,\n                },\n            },\n        };\n        if (isPassive)`,
-    `"saml:Issuer": {\n                    "@xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion",\n                    "@Format": "urn:oasis:names:tc:SAML:2.0:nameid-format:entity",\n                    "@NameQualifier": this.options.issuer,\n                    "#text": this.options.issuer,\n                },\n            },\n        };\n        if (isPassive)`
-  );
-  writeFileSync(samlPath, src);
-  console.log("✅ node-saml patchato");
-} else {
-  console.log("ℹ️  node-saml già patchato");
-}
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const require   = createRequire(import.meta.url);
+const dest      = require.resolve('passport-saml/lib/node-saml/saml.js');
+const src       = resolve(__dirname, 'lib/node-saml-saml.js');
+
+copyFileSync(src, dest);
+console.log('✅ saml.js patchato copiato in node_modules');

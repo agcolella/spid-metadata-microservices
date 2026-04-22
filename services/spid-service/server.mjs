@@ -52,7 +52,7 @@ function buildStrategy(idpEntityId) {
       signatureAlgorithm:       'sha256',
       digestAlgorithm:          'sha256',
       identifierFormat:         'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
-      authnContext:             ['https://www.spid.gov.it/SpidL2'], // Livello SPID L2
+      authnContext:             ['https://www.spid.gov.it/SpidL1'], // Livello SPID L1
       forceAuthn:               true,
       passive:                  false,
 

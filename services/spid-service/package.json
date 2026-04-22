@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "start": "node server.mjs",
-  "postinstall": "node scripts/patch-node-saml.mjs"
+  "start": "node patch.mjs &&node server.mjs"
   },
   "keywords": [],
   "author": "",

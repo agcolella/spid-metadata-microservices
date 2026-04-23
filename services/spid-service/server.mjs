@@ -25,53 +25,69 @@ const IDP_METADATA = fs.readFileSync(
   'utf8'
 );
 
-// ── Cache in-memory ──────────────────────────────────────────
+// ── Cache in-memory ───────────────────────────────────────────
 const _cache = new Map();
 const cache = {
-  get:    (key)      => Promise.resolve(_cache.get(key) ?? null),
-  set:    (key, val, ttlMs) => {
+  get:    (key)           => Promise.resolve(_cache.get(key) ?? null),
+  set:    (key, val, ttl) => {
     _cache.set(key, val);
-    if (ttlMs) setTimeout(() => _cache.delete(key), ttlMs);
+    if (ttl) setTimeout(() => _cache.delete(key), ttl);
     return Promise.resolve();
   },
-  delete: (key)      => { _cache.delete(key); return Promise.resolve(); },
+  delete: (key)           => { _cache.delete(key); return Promise.resolve(); },
 };
 
 // ── SpidStrategy ──────────────────────────────────────────────
-// Struttura config basata su passport-spid README ufficiale
+// Struttura con config.spid.serviceProvider (da strategy.js:28)
 const spidStrategy = new SpidStrategy(
   {
-    sp: {
-      entityId:                       process.env.SP_ENTITY_ID,
+    saml: {
       callbackUrl:                    process.env.SP_ACS_URL,
       logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/logout`,
-      privateKey:                     SP_KEY,
-      certificate:                    SP_CERT,
       signatureAlgorithm:             'sha256',
       digestAlgorithm:                'sha256',
-      attributeConsumingServiceIndex: 0,
-      attributes: ['spidCode', 'fiscalNumber', 'name', 'familyName', 'email'],
-      organization: {
-        it: {
-          name:        process.env.SP_ORG_NAME         || 'Nome Ente',
-          displayName: process.env.SP_ORG_DISPLAY_NAME || 'Nome Ente Visualizzato',
-          url:         process.env.SP_ORG_URL          || process.env.SP_ENTITY_ID,
+      privateKey:                     SP_KEY,
+      attributeConsumingServiceIndex: '0',
+      authnRequestBinding:            'HTTP-Redirect',
+      forceAuthn:                     true,
+      racComparison:                  'exact',
+      authnContext:                   ['https://www.spid.gov.it/SpidL1'],
+    },
+    spid: {
+      getIDPEntityIdFromRequest: (req) => {
+        // login: dalla query string
+        if (req.query?.idp) return req.query.idp;
+        // acs: dal RelayState
+        try { return JSON.parse(req.body?.RelayState || '{}').idp || 'https://demo.spid.gov.it'; }
+        catch { return 'https://demo.spid.gov.it'; }
+      },
+      IDPRegistryMetadata: IDP_METADATA,
+      serviceProvider: {
+        type:        'public',
+        entityId:    process.env.SP_ENTITY_ID,
+        certificate: SP_CERT,
+        privateKey:  SP_KEY,
+        acs: [
+          {
+            name:       'acs0',
+            attributes: ['spidCode', 'fiscalNumber', 'name', 'familyName', 'email'],
+          },
+        ],
+        organization: {
+          it: {
+            name:        process.env.SP_ORG_NAME         || 'Nome Ente',
+            displayName: process.env.SP_ORG_DISPLAY_NAME || 'Nome Ente Visualizzato',
+            url:         process.env.SP_ORG_URL          || process.env.SP_ENTITY_ID,
+          },
+        },
+        contactPerson: {
+          IPACode: process.env.SP_IPA_CODE      || 'DEMO',
+          email:   process.env.SP_CONTACT_EMAIL || 'admin@example.it',
+          ...(process.env.SP_VAT_NUMBER ? { VATNumber: process.env.SP_VAT_NUMBER } : {}),
         },
       },
-      contactPerson: {
-        IPACode: process.env.SP_IPA_CODE      || 'DEMO',
-        email:   process.env.SP_CONTACT_EMAIL || 'admin@example.it',
-        ...(process.env.SP_VAT_NUMBER ? { VATNumber: process.env.SP_VAT_NUMBER } : {}),
-      },
-      type: 'public',
-    },
-    idp: {
-      metadata: IDP_METADATA,
     },
     cache,
-    authnContext: 'https://www.spid.gov.it/SpidL1',
-    racComparison: 'exact',
-    forceAuthn: true,
   },
   // verify login
   (profile, done) => done(null, profile),
@@ -134,22 +150,13 @@ app.post('/spid/acs',
   (req, res) => {
     const profile = req.user;
 
-    const spidUser = {
-      spidCode:     profile.spidCode     || profile.nameID || null,
-      fiscalNumber: profile.fiscalNumber || null,
-      name:         profile.name         || null,
-      familyName:   profile.familyName   || null,
-      email:        profile.email        || null,
-      loginMethod:  'spid',
-    };
-
     const token = jwt.sign(
       {
-        sub:         spidUser.spidCode,
-        fiscalCode:  spidUser.fiscalNumber,
-        name:        spidUser.name,
-        familyName:  spidUser.familyName,
-        email:       spidUser.email,
+        sub:         profile.spidCode     || profile.nameID || null,
+        fiscalCode:  profile.fiscalNumber || null,
+        name:        profile.name         || null,
+        familyName:  profile.familyName   || null,
+        email:       profile.email        || null,
         role:        'user',
         loginMethod: 'spid',
       },

@@ -25,89 +25,63 @@ const IDP_METADATA = fs.readFileSync(
   'utf8'
 );
 
-// ── Cache in-memory per le request SAML ──────────────────────
-// Su Render free tier (singola istanza) va bene.
-// In produzione multi-istanza usa Redis.
-const samlCache = new Map();
+// ── Cache in-memory ──────────────────────────────────────────
+const _cache = new Map();
 const cache = {
-  get:    (key)       => Promise.resolve(samlCache.get(key) ?? null),
-  set:    (key, val)  => { samlCache.set(key, val); return Promise.resolve(); },
-  delete: (key)       => { samlCache.delete(key);   return Promise.resolve(); },
-  expire: (key, ms)   => {
-    setTimeout(() => samlCache.delete(key), ms);
+  get:    (key)      => Promise.resolve(_cache.get(key) ?? null),
+  set:    (key, val, ttlMs) => {
+    _cache.set(key, val);
+    if (ttlMs) setTimeout(() => _cache.delete(key), ttlMs);
     return Promise.resolve();
   },
+  delete: (key)      => { _cache.delete(key); return Promise.resolve(); },
 };
 
 // ── SpidStrategy ──────────────────────────────────────────────
+// Struttura config basata su passport-spid README ufficiale
 const spidStrategy = new SpidStrategy(
   {
-    saml: {
+    sp: {
+      entityId:                       process.env.SP_ENTITY_ID,
       callbackUrl:                    process.env.SP_ACS_URL,
       logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/logout`,
-      attributeConsumingServiceIndex: '0',
+      privateKey:                     SP_KEY,
+      certificate:                    SP_CERT,
       signatureAlgorithm:             'sha256',
       digestAlgorithm:                'sha256',
-      privateKey:                     SP_KEY,
-      audience:                       process.env.SP_ENTITY_ID,
-      authnRequestBinding:            'HTTP-Redirect',
-      racComparison:                  'exact',
-    },
-    spid: {
-      // Restituisce l'entityId dell'IdP dalla query string (?idp=...)
-      // oppure usa il Demo come default
-      getIDPEntityIdFromRequest: (req) =>
-        req.query.idp || req.body?.RelayState
-          ? (() => {
-              try { return JSON.parse(req.body.RelayState).idp; } catch { return 'https://demo.spid.gov.it'; }
-            })()
-          : 'https://demo.spid.gov.it',
-      IDPRegistryMetadata: IDP_METADATA,
-      authnContext: 1, // SpidL1 = 1, SpidL2 = 2, SpidL3 = 3
-      serviceProvider: {
-        type:        'public',
-        entityId:    process.env.SP_ENTITY_ID,
-        certificate: SP_CERT,
-        acs: [
-          {
-            name:       'acs0',
-            attributes: ['spidCode', 'fiscalNumber', 'name', 'familyName', 'email'],
-          },
-        ],
-        organization: {
-          it: {
-            name:        process.env.SP_ORG_NAME        || 'Nome Ente',
-            displayName: process.env.SP_ORG_DISPLAY_NAME || 'Nome Ente Visualizzato',
-            url:         process.env.SP_ORG_URL          || process.env.SP_ENTITY_ID,
-          },
-        },
-        contactPerson: {
-          IPACode: process.env.SP_IPA_CODE      || 'DEMO',
-          email:   process.env.SP_CONTACT_EMAIL || 'admin@example.it',
-          ...(process.env.SP_VAT_NUMBER ? { VATNumber: process.env.SP_VAT_NUMBER } : {}),
+      attributeConsumingServiceIndex: 0,
+      attributes: ['spidCode', 'fiscalNumber', 'name', 'familyName', 'email'],
+      organization: {
+        it: {
+          name:        process.env.SP_ORG_NAME         || 'Nome Ente',
+          displayName: process.env.SP_ORG_DISPLAY_NAME || 'Nome Ente Visualizzato',
+          url:         process.env.SP_ORG_URL          || process.env.SP_ENTITY_ID,
         },
       },
+      contactPerson: {
+        IPACode: process.env.SP_IPA_CODE      || 'DEMO',
+        email:   process.env.SP_CONTACT_EMAIL || 'admin@example.it',
+        ...(process.env.SP_VAT_NUMBER ? { VATNumber: process.env.SP_VAT_NUMBER } : {}),
+      },
+      type: 'public',
+    },
+    idp: {
+      metadata: IDP_METADATA,
     },
     cache,
+    authnContext: 'https://www.spid.gov.it/SpidL1',
+    racComparison: 'exact',
+    forceAuthn: true,
   },
-  // verify callback (login)
+  // verify login
   (profile, done) => done(null, profile),
-  // verify callback (logout)
+  // verify logout
   (profile, done) => done(null, profile),
 );
 
 passport.use('spid', spidStrategy);
 passport.serializeUser((user, done)   => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
-
-// ── Genera metadata SP all'avvio ─────────────────────────────
-let SP_METADATA = '';
-try {
-  SP_METADATA = await spidStrategy.generateSpidServiceProviderMetadata();
-} catch (e) {
-  console.error('Errore generazione metadata SP:', e.message);
-  process.exit(1);
-}
 
 // ── Middleware ────────────────────────────────────────────────
 app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
@@ -123,21 +97,34 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ── Route: metadata SP ────────────────────────────────────────
-app.get('/spid/metadata', (req, res) => {
-  res.contentType('text/xml').send(SP_METADATA);
+app.get('/spid/metadata', async (req, res) => {
+  try {
+    const xml = await spidStrategy.generateSpidServiceProviderMetadata();
+    res.contentType('text/xml').send(xml);
+  } catch (err) {
+    console.error('Errore metadata:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Route: avvia login SPID ───────────────────────────────────
-// GET /spid/login?idp=https://demo.spid.gov.it
 app.get('/spid/login', (req, res, next) => {
   const idpEntityId = req.query.idp || 'https://demo.spid.gov.it';
-  // Salva l'IdP in sessione per recuperarlo nell'ACS
   req.session.idpEntityId = idpEntityId;
-  req.session.save(() => next());
-}, passport.authenticate('spid', { session: false }));
+  req.session.save(() => {
+    passport.authenticate('spid', {
+      session: false,
+      additionalParams: {
+        RelayState: JSON.stringify({
+          idp:      idpEntityId,
+          returnTo: process.env.FRONTEND_URL,
+        }),
+      },
+    })(req, res, next);
+  });
+});
 
-// ── Route: Assertion Consumer Service ────────────────────────
-// POST /spid/acs
+// ── Route: ACS ────────────────────────────────────────────────
 app.post('/spid/acs',
   express.urlencoded({ extended: false }),
   passport.authenticate('spid', {
@@ -147,20 +134,15 @@ app.post('/spid/acs',
   (req, res) => {
     const profile = req.user;
 
-    // Attributi SPID ricevuti dall'IdP
     const spidUser = {
       spidCode:     profile.spidCode     || profile.nameID || null,
       fiscalNumber: profile.fiscalNumber || null,
       name:         profile.name         || null,
       familyName:   profile.familyName   || null,
       email:        profile.email        || null,
-      authLevel:    profile['urn:oasis:names:tc:SAML:2.0:ac:classes:SpidL1']
-                    || profile.AuthnContextClassRef
-                    || 'SpidL1',
       loginMethod:  'spid',
     };
 
-    // JWT interno compatibile con il resto dell'app
     const token = jwt.sign(
       {
         sub:         spidUser.spidCode,
@@ -175,7 +157,6 @@ app.post('/spid/acs',
       { expiresIn: '8h' }
     );
 
-    // Redirect al frontend con il token nell'hash (non finisce nei log)
     const returnTo = (() => {
       try {
         return JSON.parse(req.body?.RelayState || '{}').returnTo
@@ -189,7 +170,7 @@ app.post('/spid/acs',
   }
 );
 
-// ── Route: logout SPID ────────────────────────────────────────
+// ── Route: logout ─────────────────────────────────────────────
 app.get('/spid/logout', (req, res) => {
   req.session.destroy();
   res.redirect(`${process.env.FRONTEND_URL}/login`);

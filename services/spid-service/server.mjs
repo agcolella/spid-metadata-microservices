@@ -16,10 +16,10 @@ const app       = express();
 const PORT      = process.env.PORT || 4008;
 
 // ── Certificati SP ────────────────────────────────────────────
-const SP_KEY  = fs.readFileSync(path.resolve(process.env.SP_KEY_PATH), 'utf8');
+const SP_KEY  = fs.readFileSync(path.resolve(__dirname, process.env.SP_KEY_PATH),  'utf8');
 const SP_CERT = fs.readFileSync(path.resolve(__dirname, process.env.SP_CERT_PATH), 'utf8');
 
-// ── Metadata IdP Demo ─────────────────────────────────────────
+// ── Metadata IdP ──────────────────────────────────────────────
 const IDP_METADATA = fs.readFileSync(
   path.resolve(__dirname, './idp-metadata/demo-idp-metadata.xml'),
   'utf8'
@@ -28,61 +28,98 @@ const IDP_METADATA = fs.readFileSync(
 // ── Cache in-memory ───────────────────────────────────────────
 const _cache = new Map();
 const cache = {
-  get:    (key)           => Promise.resolve(_cache.get(key) ?? null),
+  get:    (key)      => Promise.resolve(_cache.get(key) ?? null),
   set:    (key, val, ttl) => {
     _cache.set(key, val);
     if (ttl) setTimeout(() => _cache.delete(key), ttl);
     return Promise.resolve();
   },
-  delete: (key)           => { _cache.delete(key); return Promise.resolve(); },
+  delete: (key)      => { _cache.delete(key); return Promise.resolve(); },
 };
 
 // ── SpidStrategy ──────────────────────────────────────────────
-// Struttura con config.spid.serviceProvider (da strategy.js:28)
+//
+// CHIAVI CRITICHE (da const.js della libreria):
+//   config.spid.authnContext  → numero intero: 1 | 2 | 3
+//   ForceAuthn è automatico   → true SOLO per livelli 2 e 3
+//   config.spid.serviceProvider.type → 'public' | 'private'
+//     'public'  → genera <spid:Public/>  nel metadata
+//     'private' → genera <spid:Private/> nel metadata
+//
+// FORZATO DALLA LIBRERIA (SPID_FORCED_SAML_CONFIG, non sovrascrivere):
+//   digestAlgorithm   = sha512
+//   allowCreate       = false  (NameIDPolicy senza AllowCreate)
+//   wantAssertionsSigned = true
+//
 const spidStrategy = new SpidStrategy(
   {
     saml: {
       callbackUrl:                    process.env.SP_ACS_URL,
-      logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/logout`,
+      // logoutCallbackUrl usa entityId come base
+      logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/spid/logout`,
+      // sha256 per la firma della request; digest è forzato a sha512 dalla lib
       signatureAlgorithm:             'sha256',
-      digestAlgorithm:                'sha256',
       privateKey:                     SP_KEY,
       attributeConsumingServiceIndex: '0',
+      // HTTP-Redirect è richiesto da SPID per la AuthnRequest
       authnRequestBinding:            'HTTP-Redirect',
-      forceAuthn:                     true,
-      racComparison:                  'exact',
     },
     spid: {
+      // ⚠️  NUMERO INTERO — non stringa URI
+      // 1 → SpidL1 (senza ForceAuthn)
+      // 2 → SpidL2 (con ForceAuthn=true) ← raccomandato per il Demo IdP
+      authnContext: 2,
+
       getIDPEntityIdFromRequest: (req) => {
-        // login: dalla query string
+        // GET /spid/login?idp=...
         if (req.query?.idp) return req.query.idp;
-        // acs: dal RelayState
-        try { return JSON.parse(req.body?.RelayState || '{}').idp || 'https://demo.spid.gov.it'; }
-        catch { return 'https://demo.spid.gov.it'; }
+        // POST /spid/acs  → RelayState JSON
+        try {
+          return JSON.parse(req.body?.RelayState || '{}').idp
+            || 'https://demo.spid.gov.it';
+        } catch {
+          return 'https://demo.spid.gov.it';
+        }
       },
+
       IDPRegistryMetadata: IDP_METADATA,
+
       serviceProvider: {
+        // ⚠️  'public' → <spid:Public/> nel metadata (obbligatorio per PA)
+        // check 82 del validatore richiede Public; check 83 vieta Private
         type:        'public',
         entityId:    process.env.SP_ENTITY_ID,
         certificate: SP_CERT,
         privateKey:  SP_KEY,
+
         acs: [
           {
-            name:       'acs0',
-            attributes: ['spidCode', 'fiscalNumber', 'name', 'familyName', 'email'],
+            name:       'Servizio Demo SPID',
+            attributes: [
+              'spidCode',
+              'fiscalNumber',
+              'name',
+              'familyName',
+              'email',
+            ],
           },
         ],
+
         organization: {
           it: {
-            name:        process.env.SP_ORG_NAME         || 'Nome Ente',
-            displayName: process.env.SP_ORG_DISPLAY_NAME || 'Nome Ente Visualizzato',
+            name:        process.env.SP_ORG_NAME         || 'Demo SP',
+            displayName: process.env.SP_ORG_DISPLAY_NAME || 'Servizio Demo SPID',
             url:         process.env.SP_ORG_URL          || process.env.SP_ENTITY_ID,
           },
         },
+
         contactPerson: {
-          IPACode: process.env.SP_IPA_CODE      || 'DEMO',
-          email:   process.env.SP_CONTACT_EMAIL || 'admin@example.it',
-          ...(process.env.SP_VAT_NUMBER ? { VATNumber: process.env.SP_VAT_NUMBER } : {}),
+          // IPACode obbligatorio per enti pubblici
+          IPACode:   process.env.SP_IPA_CODE      || 'DEMO',
+          email:     process.env.SP_CONTACT_EMAIL || 'admin@example.it',
+          // VATNumber: lascialo VUOTO oppure rimuovilo se non hai P.IVA
+          // (check 72-73: se presente deve avere valore e ISO3166 prefix)
+          // VATNumber: process.env.SP_VAT_NUMBER,
         },
       },
     },
@@ -99,14 +136,21 @@ passport.serializeUser((user, done)   => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
 // ── Middleware ────────────────────────────────────────────────
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(cors({
+  origin:      process.env.FRONTEND_URL,
+  credentials: true,
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({
   secret:            process.env.SESSION_SECRET || 'spid-secret',
   resave:            false,
   saveUninitialized: false,
-  cookie:            { secure: process.env.NODE_ENV === 'production', httpOnly: true },
+  cookie: {
+    secure:   process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax',
+  },
 }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -115,34 +159,35 @@ app.use(passport.session());
 app.get('/spid/metadata', async (req, res) => {
   try {
     const xml = await spidStrategy.generateSpidServiceProviderMetadata();
-    res.contentType('text/xml').send(xml);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.send(xml);
   } catch (err) {
-    console.error('Errore metadata:', err.message);
+    console.error('[metadata] Errore:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ── Route: avvia login SPID ───────────────────────────────────
-// 3. Nel passport.authenticate, passa i parametri SPID obbligatori:
 app.get('/spid/login', (req, res, next) => {
   const idpEntityId = req.query.idp || 'https://demo.spid.gov.it';
+
   req.session.idpEntityId = idpEntityId;
   req.session.save(() => {
     passport.authenticate('spid', {
       session: false,
       additionalParams: {
-        RelayState: JSON.stringify({ idp: idpEntityId, returnTo: process.env.FRONTEND_URL }),
+        RelayState: JSON.stringify({
+          idp:      idpEntityId,
+          returnTo: process.env.FRONTEND_URL,
+        }),
       },
-      // ✅ Questi sovrascrivono il SAML generato:
-      forceAuthn:      true,
-      authnContext:    'https://www.spid.gov.it/SpidL1',  // stringa, NON array
-      racComparison:  'exact',
     })(req, res, next);
   });
 });
 
 // ── Route: ACS ────────────────────────────────────────────────
-app.post('/spid/acs',
+app.post(
+  '/spid/acs',
   express.urlencoded({ extended: false }),
   passport.authenticate('spid', {
     session:         false,
@@ -165,14 +210,11 @@ app.post('/spid/acs',
       { expiresIn: '8h' }
     );
 
-    const returnTo = (() => {
-      try {
-        return JSON.parse(req.body?.RelayState || '{}').returnTo
-          || process.env.FRONTEND_URL;
-      } catch {
-        return process.env.FRONTEND_URL;
-      }
-    })();
+    let returnTo = process.env.FRONTEND_URL;
+    try {
+      returnTo = JSON.parse(req.body?.RelayState || '{}').returnTo
+        || process.env.FRONTEND_URL;
+    } catch { /* usa default */ }
 
     res.redirect(`${returnTo}/auth/callback#token=${token}`);
   }
@@ -180,11 +222,16 @@ app.post('/spid/acs',
 
 // ── Route: logout ─────────────────────────────────────────────
 app.get('/spid/logout', (req, res) => {
-  req.session.destroy();
-  res.redirect(`${process.env.FRONTEND_URL}/login`);
+  req.session.destroy(() => {
+    res.redirect(`${process.env.FRONTEND_URL}/login`);
+  });
 });
 
 // ── Healthcheck ───────────────────────────────────────────────
-app.get('/health', (_, res) => res.json({ status: 'ok', service: 'spid-service' }));
+app.get('/health', (_, res) =>
+  res.json({ status: 'ok', service: 'spid-service', port: PORT })
+);
 
-app.listen(PORT, () => console.log(`spid-service in ascolto su porta ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`[spid-service] in ascolto sulla porta ${PORT}`)
+);

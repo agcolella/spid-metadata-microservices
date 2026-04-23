@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.mjs",
-    "postinstall": "node patch.mjs"
+    "start": "node server.mjs"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +19,8 @@
     "jsonwebtoken": "^9.0.3",
     "passport": "^0.7.0",
     "passport-saml": "^3.2.4",
+    "passport-spid": "^3.0.2",
+    "spid-passport": "^1.1.0",
     "xml-crypto": "^6.1.2"
   }
 }

@@ -51,7 +51,6 @@ const spidStrategy = new SpidStrategy(
       authnRequestBinding:            'HTTP-Redirect',
       forceAuthn:                     true,
       racComparison:                  'exact',
-      authnContext:                   ['https://www.spid.gov.it/SpidL1'],
     },
     spid: {
       getIDPEntityIdFromRequest: (req) => {
@@ -124,6 +123,7 @@ app.get('/spid/metadata', async (req, res) => {
 });
 
 // ── Route: avvia login SPID ───────────────────────────────────
+// 3. Nel passport.authenticate, passa i parametri SPID obbligatori:
 app.get('/spid/login', (req, res, next) => {
   const idpEntityId = req.query.idp || 'https://demo.spid.gov.it';
   req.session.idpEntityId = idpEntityId;
@@ -131,11 +131,12 @@ app.get('/spid/login', (req, res, next) => {
     passport.authenticate('spid', {
       session: false,
       additionalParams: {
-        RelayState: JSON.stringify({
-          idp:      idpEntityId,
-          returnTo: process.env.FRONTEND_URL,
-        }),
+        RelayState: JSON.stringify({ idp: idpEntityId, returnTo: process.env.FRONTEND_URL }),
       },
+      // ✅ Questi sovrascrivono il SAML generato:
+      forceAuthn:      true,
+      authnContext:    'https://www.spid.gov.it/SpidL1',  // stringa, NON array
+      racComparison:  'exact',
     })(req, res, next);
   });
 });

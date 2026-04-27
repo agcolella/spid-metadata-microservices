@@ -71,6 +71,7 @@ const spidStrategy = new SpidStrategy(
       privateKey:                     SP_KEY,
       attributeConsumingServiceIndex: '0',
       authnRequestBinding:            'HTTP-Redirect',
+      validateInResponseTo:           'never',   // ← aggiunta
     },
     spid: {
       // ⚠️  NUMERO INTERO — obbligatorio per il Validator strict

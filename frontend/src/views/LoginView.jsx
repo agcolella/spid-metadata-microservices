@@ -5,7 +5,7 @@ import { notify } from '../services/notificationService';
 
 //const API_BASE = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
 const SPID_BASE = process.env.REACT_APP_SPID_SERVICE_URL || 'http://localhost:4008';
-const SPID_IDP = 'https://demo.spid.gov.it';
+const SPID_IDP = 'https://demo.spid.gov.it/validator';
 
 export function LoginView({ onLogin }) {
   const [username, setUsername] = useState('');

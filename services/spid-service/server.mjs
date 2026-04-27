@@ -15,11 +15,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app       = express();
 const PORT      = process.env.PORT || 4008;
 
+// ── EntityID di default: Validator (non Demo generico)
+// Per passare a un altro IdP in futuro basta cambiare la variabile d'ambiente
+const DEFAULT_IDP_ENTITY_ID =
+  process.env.SPID_IDP_ENTITY_ID || 'https://demo.spid.gov.it/validator';
+
 // ── Certificati SP ────────────────────────────────────────────
 const SP_KEY  = fs.readFileSync(path.resolve(__dirname, process.env.SP_KEY_PATH),  'utf8');
 const SP_CERT = fs.readFileSync(path.resolve(__dirname, process.env.SP_CERT_PATH), 'utf8');
 
-// ── Metadata IdP ──────────────────────────────────────────────
+// ── Metadata IdP (validator) ──────────────────────────────────
+// File aggiornato con: curl -sL https://demo.spid.gov.it/validator/metadata.xml
+//   -o idp-metadata/demo-idp-metadata.xml
 const IDP_METADATA = fs.readFileSync(
   path.resolve(__dirname, './idp-metadata/demo-idp-metadata.xml'),
   'utf8'
@@ -28,65 +35,64 @@ const IDP_METADATA = fs.readFileSync(
 // ── Cache in-memory ───────────────────────────────────────────
 const _cache = new Map();
 const cache = {
-  get:    (key)      => Promise.resolve(_cache.get(key) ?? null),
+  get:    (key)           => Promise.resolve(_cache.get(key) ?? null),
   set:    (key, val, ttl) => {
     _cache.set(key, val);
     if (ttl) setTimeout(() => _cache.delete(key), ttl);
     return Promise.resolve();
   },
-  delete: (key)      => { _cache.delete(key); return Promise.resolve(); },
+  delete: (key)           => { _cache.delete(key); return Promise.resolve(); },
 };
 
 // ── SpidStrategy ──────────────────────────────────────────────
 //
-// CHIAVI CRITICHE (da const.js della libreria):
+// Struttura richiesta dalla libreria (da strategy.js + const.js):
+//
 //   config.spid.authnContext  → numero intero: 1 | 2 | 3
-//   ForceAuthn è automatico   → true SOLO per livelli 2 e 3
+//     1 → SpidL1 (senza ForceAuthn)
+//     2 → SpidL2 (con ForceAuthn=true)  ← usa livello 2 con il Validator
+//     3 → SpidL3 (con ForceAuthn=true)
+//
 //   config.spid.serviceProvider.type → 'public' | 'private'
-//     'public'  → genera <spid:Public/>  nel metadata
+//     'public'  → genera <spid:Public/>  nel metadata  (PA: obbligatorio)
 //     'private' → genera <spid:Private/> nel metadata
 //
-// FORZATO DALLA LIBRERIA (SPID_FORCED_SAML_CONFIG, non sovrascrivere):
-//   digestAlgorithm   = sha512
-//   allowCreate       = false  (NameIDPolicy senza AllowCreate)
-//   wantAssertionsSigned = true
+//   FORZATO dalla lib (non sovrascrivere):
+//     digestAlgorithm   = sha512
+//     allowCreate       = false
+//     wantAssertionsSigned = true
 //
 const spidStrategy = new SpidStrategy(
   {
     saml: {
       callbackUrl:                    process.env.SP_ACS_URL,
-      // logoutCallbackUrl usa entityId come base
       logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/spid/logout`,
-      // sha256 per la firma della request; digest è forzato a sha512 dalla lib
       signatureAlgorithm:             'sha256',
       privateKey:                     SP_KEY,
       attributeConsumingServiceIndex: '0',
-      // HTTP-Redirect è richiesto da SPID per la AuthnRequest
       authnRequestBinding:            'HTTP-Redirect',
     },
     spid: {
-      // ⚠️  NUMERO INTERO — non stringa URI
-      // 1 → SpidL1 (senza ForceAuthn)
-      // 2 → SpidL2 (con ForceAuthn=true) ← raccomandato per il Demo IdP
+      // ⚠️  NUMERO INTERO — obbligatorio per il Validator strict
+      // livello 2 → ForceAuthn=true aggiunto automaticamente dalla lib
       authnContext: 2,
 
       getIDPEntityIdFromRequest: (req) => {
         // GET /spid/login?idp=...
         if (req.query?.idp) return req.query.idp;
-        // POST /spid/acs  → RelayState JSON
+        // POST /spid/acs → RelayState JSON
         try {
           return JSON.parse(req.body?.RelayState || '{}').idp
-            || 'https://demo.spid.gov.it';
+            || DEFAULT_IDP_ENTITY_ID;
         } catch {
-          return 'https://demo.spid.gov.it';
+          return DEFAULT_IDP_ENTITY_ID;
         }
       },
 
       IDPRegistryMetadata: IDP_METADATA,
 
       serviceProvider: {
-        // ⚠️  'public' → <spid:Public/> nel metadata (obbligatorio per PA)
-        // check 82 del validatore richiede Public; check 83 vieta Private
+        // 'public' → <spid:Public/> nel metadata (check 82 del validatore)
         type:        'public',
         entityId:    process.env.SP_ENTITY_ID,
         certificate: SP_CERT,
@@ -114,11 +120,10 @@ const spidStrategy = new SpidStrategy(
         },
 
         contactPerson: {
-          // IPACode obbligatorio per enti pubblici
-          IPACode:   process.env.SP_IPA_CODE      || 'c_h501',
-          email:     process.env.SP_CONTACT_EMAIL || 'admin@example.it',
-          // VATNumber: lascialo VUOTO oppure rimuovilo se non hai P.IVA
-          // (check 72-73: se presente deve avere valore e ISO3166 prefix)
+          IPACode: process.env.SP_IPA_CODE      || 'c_h501',
+          email:   process.env.SP_CONTACT_EMAIL || 'admin@example.it',
+          // ⚠️  VATNumber: commentato — se vuoto causa fallimento check 72-73
+          // Decommentare solo se si ha una P.IVA valida con prefisso ISO3166
           // VATNumber: process.env.SP_VAT_NUMBER,
         },
       },
@@ -169,7 +174,7 @@ app.get('/spid/metadata', async (req, res) => {
 
 // ── Route: avvia login SPID ───────────────────────────────────
 app.get('/spid/login', (req, res, next) => {
-  const idpEntityId = req.query.idp || 'https://demo.spid.gov.it';
+  const idpEntityId = req.query.idp || DEFAULT_IDP_ENTITY_ID;
 
   req.session.idpEntityId = idpEntityId;
   req.session.save(() => {
@@ -229,9 +234,14 @@ app.get('/spid/logout', (req, res) => {
 
 // ── Healthcheck ───────────────────────────────────────────────
 app.get('/health', (_, res) =>
-  res.json({ status: 'ok', service: 'spid-service', port: PORT })
+  res.json({
+    status:             'ok',
+    service:            'spid-service',
+    port:               PORT,
+    defaultIdpEntityId: DEFAULT_IDP_ENTITY_ID,
+  })
 );
 
 app.listen(PORT, () =>
-  console.log(`[spid-service] in ascolto sulla porta ${PORT}`)
+  console.log(`[spid-service] in ascolto sulla porta ${PORT} | IdP: ${DEFAULT_IDP_ENTITY_ID}`)
 );

@@ -115,7 +115,7 @@ const spidStrategy = new SpidStrategy(
 
         contactPerson: {
           // IPACode obbligatorio per enti pubblici
-          IPACode:   process.env.SP_IPA_CODE      || 'DEMO',
+          IPACode:   process.env.SP_IPA_CODE      || 'c_h501',
           email:     process.env.SP_CONTACT_EMAIL || 'admin@example.it',
           // VATNumber: lascialo VUOTO oppure rimuovilo se non hai P.IVA
           // (check 72-73: se presente deve avere valore e ISO3166 prefix)

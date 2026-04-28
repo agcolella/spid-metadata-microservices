@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import axios from '../services/api';
 import { API } from '../constants';
 import { notify } from '../services/notificationService';
-
-//const API_BASE = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
-const SPID_BASE = process.env.REACT_APP_SPID_SERVICE_URL || 'http://localhost:4008';
-const SPID_IDP = 'https://demo.spid.gov.it/validator';
+import SpidButton from '../components/SpidButton';
 
 export function LoginView({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -27,14 +24,12 @@ export function LoginView({ onLogin }) {
     finally  { setLoading(false); }
   };
 
-  const handleSpidLogin = () => {
-    window.location.href = `${SPID_BASE}/spid/login?idp=${encodeURIComponent(SPID_IDP)}`;
-  };
+  const spidError = new URLSearchParams(window.location.search).get('error');
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center',
       justifyContent: 'center', background: '#f8fafc' }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 40, width: 360,
+      <div style={{ background: '#fff', borderRadius: 12, padding: 40, width: 380,
         boxShadow: '0 4px 24px rgba(0,0,0,.12)' }}>
         <h2 style={{ textAlign: 'center', marginBottom: 24 }}>🔐 SPID Metadata App</h2>
 
@@ -53,7 +48,8 @@ export function LoginView({ onLogin }) {
           </div>
           <button type="submit" disabled={loading}
             style={{ width: '100%', padding: '12px', background: '#3b82f6', color: '#fff',
-              border: 'none', borderRadius: 6, fontWeight: 600, fontSize: '1rem', cursor: 'pointer' }}>
+              border: 'none', borderRadius: 6, fontWeight: 600, fontSize: '1rem',
+              cursor: 'pointer' }}>
             {loading ? 'Accesso...' : 'Accedi'}
           </button>
         </form>
@@ -65,23 +61,18 @@ export function LoginView({ onLogin }) {
           <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
         </div>
 
-        {/* Bottone SPID */}
-        <button onClick={handleSpidLogin}
-          style={{ width: '100%', padding: '12px', background: '#06c', color: '#fff',
-            border: 'none', borderRadius: 6, fontWeight: 600, fontSize: '1rem',
-            cursor: 'pointer', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', gap: 8 }}>
-          <img src="https://www.spid.gov.it/assets/img/spid-ico-circle-bb.svg"
-            alt="" width={24} height={24}
-            onError={e => { e.target.style.display = 'none'; }} />
-          Entra con SPID
-        </button>
+        {/* ✅ Bottone ufficiale AgID con dropdown IdP */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <SpidButton size="l" />
+        </div>
 
         {/* Errore callback SPID */}
-        {new URLSearchParams(window.location.search).get('error') === 'spid_callback' && (
+        {spidError && (
           <p style={{ color: '#dc2626', textAlign: 'center',
             marginTop: 16, fontSize: '0.875rem' }}>
-            Accesso SPID non riuscito. Riprova.
+            {spidError === 'spid_callback'
+              ? 'Accesso SPID non riuscito. Riprova.'
+              : `Errore SPID: ${spidError}`}
           </p>
         )}
       </div>

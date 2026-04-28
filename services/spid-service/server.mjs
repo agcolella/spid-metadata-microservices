@@ -39,10 +39,18 @@ const extractEntities = (xml) =>
     .map(m => m[0])
     .join('\n');
 
+// Aggiungi dopo gli altri due
+const xmlAgidValidator = fs.existsSync(
+  path.resolve(__dirname, './idp-metadata/agid-validator-metadata.xml')
+) ? fs.readFileSync(
+  path.resolve(__dirname, './idp-metadata/agid-validator-metadata.xml'), 'utf8'
+) : '';
+
 const IDP_METADATA = `<?xml version="1.0"?>
 <md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata">
 ${extractEntities(xmlValidator)}
 ${extractEntities(xmlRegistry)}
+${xmlAgidValidator ? extractEntities(xmlAgidValidator) : ''}
 </md:EntitiesDescriptor>`;
 
 console.log(`[spid] Caricati ${(IDP_METADATA.match(/EntityDescriptor/g)||[]).length/2} IdP`);

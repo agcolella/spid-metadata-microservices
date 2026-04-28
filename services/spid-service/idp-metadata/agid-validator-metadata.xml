@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" ID="_c3e21920-8f3a-43d7-986c-e003390c6dff" entityID="https://validator.spid.gov.it/saml/idp"><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><ds:Reference URI="#_c3e21920-8f3a-43d7-986c-e003390c6dff"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>oZ0JA8vRK1DBrEzGUU6C6sfq6RTJ5smT4COxxDmkPa0=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>YPKLhdKpycLN1b0N6sX4auWWjAbpR2Ck0IbrPrMqH5SKkClAPkJGs4B1qzeTFnbNpQbhgAckuLo+ZNu8kbOrjJYrW9YHCuRDGWhTMh78DvEh6/MwlYMTdg+7wotr0WEZFnhHRLfyedCQ3lxZorvQnORgnm+LaTor3I4dC7J9TTEwaEGe+ln4oOaE7c0w35G/dIVjPf/tb+kF+CnAm0xq+b3HOiZiYW3Z+0jvhN6BKxy1f5wrERB0O2iGfGVJD7F6Zpi9C1ljvvJu8L/oQIRtmb+FqedW6S+HG+/821o7lOYzWY+3TOOjaBKZl/D3hWhamgvBr10PkROMGSgtOhhXOg==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIEATCCAumgAwIBAgIUK76jU6FoZ1PoeC0dHNDCFCYT3NMwDQYJKoZIhvcNAQELBQAwgY8xCzAJBgNVBAYTAklUMQ0wCwYDVQQIDARSb21lMQ0wCwYDVQQHDARSb21lMQ0wCwYDVQQKDARBZ0lEMQ0wCwYDVQQLDARBZ0lEMR4wHAYDVQQDDBV2YWxpZGF0b3Iuc3BpZC5nb3YuaXQxJDAiBgkqhkiG9w0BCQEWFXNwaWQudGVjaEBhZ2lkLmdvdi5pdDAeFw0yMzA1MTExNjQxNDBaFw0yNTA1MTAxNjQxNDBaMIGPMQswCQYDVQQGEwJJVDENMAsGA1UECAwEUm9tZTENMAsGA1UEBwwEUm9tZTENMAsGA1UECgwEQWdJRDENMAsGA1UECwwEQWdJRDEeMBwGA1UEAwwVdmFsaWRhdG9yLnNwaWQuZ292Lml0MSQwIgYJKoZIhvcNAQkBFhVzcGlkLnRlY2hAYWdpZC5nb3YuaXQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCrzP7GqjxaKmenIvxFD2gjXATKHlufR+452qX0seXRC4ayPxNctnwXy88bwkLo4tBtoqMOThntkYEcDKjKjtEF7uEbksF2fHEUzD51BwhuqP3NDY7QPWhHVKxw3bFGKiuwPUaYFXQjgE17b96Gi0evh7u8wlaC/8Bd71YoQBv2zV3wipcw3U81oJbB2rCLul3g6VjjyBshu5ldSOWiNXU+KAsZDdu3Pcy5G9C0FzTb5o7wn5sV1meBi1GRqUHD08oyHa5maweeRbSJfb6qOU4BphXHx+QYFHqxpHGVwUi2zRbJZ688OrmbADaEb9llVsG7zMP9O0si6hAcvMlPO4vFAgMBAAGjUzBRMB0GA1UdDgQWBBR2rWdU00XYJ2fgPpinJTBHqlP+KTAfBgNVHSMEGDAWgBR2rWdU00XYJ2fgPpinJTBHqlP+KTAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAY+/VQhb5235KbkFHPAuXt/j5jheBygZnOXd14FQtDuGP7+DD8/14n+aD9rGPs7ccZ2jvxGvLFptQNxzOOiBeyJO4yUHTrGggQPphwDzqA/OcGhHg/TTBNdKClUqXqVZnjl6tnQR+jJuMaVsHTYrX8//F2tewf+xuObHPn5h2g+lq7HCv7dNM6oYoW39hmf1W4FVSZhO/smkFuejuJR7gjx1MEHUc6r4HfPafAz1Avltydp4uubxsYjDpOq884oGsx8VdJEwgWdjRXryWjMwOjYMuzbcuRLWlg+TbkqubxkDIPuO1Xqz1H+ff8nQSRlgrCiHcvIatlSlcil2JllcyK</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature>
+
+    <md:SPSSODescriptor AuthnRequestsSigned="true" WantAssertionsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+        <md:KeyDescriptor use="signing">
+            <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+                <ds:X509Data>
+                    <ds:X509Certificate>MIIEATCCAumgAwIBAgIUK76jU6FoZ1PoeC0dHNDCFCYT3NMwDQYJKoZIhvcNAQELBQAwgY8xCzAJBgNVBAYTAklUMQ0wCwYDVQQIDARSb21lMQ0wCwYDVQQHDARSb21lMQ0wCwYDVQQKDARBZ0lEMQ0wCwYDVQQLDARBZ0lEMR4wHAYDVQQDDBV2YWxpZGF0b3Iuc3BpZC5nb3YuaXQxJDAiBgkqhkiG9w0BCQEWFXNwaWQudGVjaEBhZ2lkLmdvdi5pdDAeFw0yMzA1MTExNjQxNDBaFw0yNTA1MTAxNjQxNDBaMIGPMQswCQYDVQQGEwJJVDENMAsGA1UECAwEUm9tZTENMAsGA1UEBwwEUm9tZTENMAsGA1UECgwEQWdJRDENMAsGA1UECwwEQWdJRDEeMBwGA1UEAwwVdmFsaWRhdG9yLnNwaWQuZ292Lml0MSQwIgYJKoZIhvcNAQkBFhVzcGlkLnRlY2hAYWdpZC5nb3YuaXQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCrzP7GqjxaKmenIvxFD2gjXATKHlufR+452qX0seXRC4ayPxNctnwXy88bwkLo4tBtoqMOThntkYEcDKjKjtEF7uEbksF2fHEUzD51BwhuqP3NDY7QPWhHVKxw3bFGKiuwPUaYFXQjgE17b96Gi0evh7u8wlaC/8Bd71YoQBv2zV3wipcw3U81oJbB2rCLul3g6VjjyBshu5ldSOWiNXU+KAsZDdu3Pcy5G9C0FzTb5o7wn5sV1meBi1GRqUHD08oyHa5maweeRbSJfb6qOU4BphXHx+QYFHqxpHGVwUi2zRbJZ688OrmbADaEb9llVsG7zMP9O0si6hAcvMlPO4vFAgMBAAGjUzBRMB0GA1UdDgQWBBR2rWdU00XYJ2fgPpinJTBHqlP+KTAfBgNVHSMEGDAWgBR2rWdU00XYJ2fgPpinJTBHqlP+KTAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAY+/VQhb5235KbkFHPAuXt/j5jheBygZnOXd14FQtDuGP7+DD8/14n+aD9rGPs7ccZ2jvxGvLFptQNxzOOiBeyJO4yUHTrGggQPphwDzqA/OcGhHg/TTBNdKClUqXqVZnjl6tnQR+jJuMaVsHTYrX8//F2tewf+xuObHPn5h2g+lq7HCv7dNM6oYoW39hmf1W4FVSZhO/smkFuejuJR7gjx1MEHUc6r4HfPafAz1Avltydp4uubxsYjDpOq884oGsx8VdJEwgWdjRXryWjMwOjYMuzbcuRLWlg+TbkqubxkDIPuO1Xqz1H+ff8nQSRlgrCiHcvIatlSlcil2JllcyK</ds:X509Certificate>
+                </ds:X509Data>
+            </ds:KeyInfo>
+        </md:KeyDescriptor>
+        <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://validator.spid.gov.it/saml/idp/samlslo"/>
+        <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://validator.spid.gov.it/saml/idp/samlslo"/>
+        <md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</md:NameIDFormat>
+        <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://validator.spid.gov.it/saml/idp/samlacs" index="0" isDefault="true"/>
+        <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://validator.spid.gov.it/saml/idp/samlacs" index="1"/>
+        <md:AttributeConsumingService index="0">
+            <md:ServiceName xml:lang="it">Service 0</md:ServiceName>
+            <md:ServiceDescription xml:lang="it">Service 0</md:ServiceDescription>
+            <md:RequestedAttribute Name="spidCode" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="name" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="familyName" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="placeOfBirth" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="countyOfBirth" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="dateOfBirth" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="gender" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="fiscalNumber" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="mobilePhone" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="email" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+        </md:AttributeConsumingService>
+        <md:AttributeConsumingService index="99">
+            <md:ServiceName xml:lang="it">eIDAS Natural Person Minimum Attribute Set</md:ServiceName>
+            <md:RequestedAttribute Name="spidCode" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="name" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="familyName" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="dateOfBirth" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+        </md:AttributeConsumingService>
+        <md:AttributeConsumingService index="100">
+            <md:ServiceName xml:lang="it">eIDAS Natural Person Full Attribute Set</md:ServiceName>
+            <md:RequestedAttribute Name="spidCode" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="name" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="familyName" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="dateOfBirth" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="placeOfBirth" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="address" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+            <md:RequestedAttribute Name="gender" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic"/>
+        </md:AttributeConsumingService>
+    </md:SPSSODescriptor>
+    <md:Organization>
+        <md:OrganizationName xml:lang="it">AgID</md:OrganizationName>
+        <md:OrganizationDisplayName xml:lang="it">Agenzia per l'Italia Digitale</md:OrganizationDisplayName>
+        <md:OrganizationURL xml:lang="it">https://www.agid.gov.it</md:OrganizationURL>
+    </md:Organization>
+    <md:ContactPerson contactType="other">
+        <md:Extensions>
+            <spid:IPACode xmlns:spid="https://spid.gov.it/saml-extensions">agid</spid:IPACode>
+            <spid:Public xmlns:spid="https://spid.gov.it/saml-extensions"/>
+        </md:Extensions>
+        <md:Company>AgID</md:Company>
+        <md:EmailAddress>spid.tech@agid.gov.it</md:EmailAddress>
+        <md:TelephoneNumber>+3906852641</md:TelephoneNumber>
+    </md:ContactPerson>
+</md:EntityDescriptor>

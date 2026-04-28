@@ -102,7 +102,7 @@ export default function SpidButton({ size = 'l' }) {
                     }
                   }}
                   alt={idp.name}
-                  style={{ maxWidth: '100%', height: 'auto' }}  // ← lascia fare al CSS AgID
+                  style={{ height: '32px', width: 'auto', maxWidth: '120px', objectFit: 'contain' }}  // ← lascia fare al CSS AgID
                 />
               </a>
             </li>

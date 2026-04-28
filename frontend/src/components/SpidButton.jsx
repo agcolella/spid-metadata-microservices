@@ -63,7 +63,8 @@ export default function SpidButton({ size = 'l' }) {
     <>
       {/* Bottone ufficiale AgID — versione GET */}
       <a
-        href="#"
+        href="/login"
+        onClick={e => e.preventDefault()}
         className={`italia-it-button italia-it-button-size-${size} button-spid`}
         spid-idp-button={`#${buttonId}`}
         aria-haspopup="true"

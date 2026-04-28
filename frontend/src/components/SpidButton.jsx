@@ -19,6 +19,24 @@ const IDP_LIST = [
   { id: 'infocamereid',     name: 'InfoCamere ID',      entityId: 'https://loginspid.infocamere.it' },
 ];
 
+// Voci di test — mostrate solo se REACT_APP_SHOW_TEST_IDPS=true
+const TEST_IDP_LIST = [
+  {
+    id:       'validator-demo',
+    name:     'SPID Demo Validator',
+    entityId: 'https://demo.spid.gov.it/validator',
+    isTest:   true,
+  },
+  {
+    id:       'validator-agid',
+    name:     'AgID Validator ufficiale',
+    entityId: 'https://validator.spid.gov.it/saml/idp',
+    isTest:   true,
+  },
+];
+
+const SHOW_TEST_IDPS = process.env.REACT_APP_SHOW_TEST_IDPS === 'true';
+
 // Mescola in ordine random (requisito AgID)
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
@@ -107,6 +125,43 @@ export default function SpidButton({ size = 'l' }) {
               </a>
             </li>
           ))}
+          {SHOW_TEST_IDPS && (
+            <>
+              {/* Separatore visivo */}
+              <li style={{ borderTop: '1px solid #e5e7eb', margin: '4px 0', padding: 0 }}>
+                <span style={{
+                  display: 'block',
+                  padding: '4px 16px',
+                  fontSize: '0.7rem',
+                  color: '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}>
+                  Ambienti di test
+                </span>
+              </li>
+              {TEST_IDP_LIST.map(idp => (
+                <li key={idp.id}>
+                  <a
+                    className="dropdown-item"
+                    href={`${SPID_SERVICE_URL}/spid/login?idp=${encodeURIComponent(idp.entityId)}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
+                    {/* Icona generica per i validator */}
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: '#f3f4f6', fontSize: '0.75rem', color: '#6b7280',
+                      flexShrink: 0,
+                    }}>
+                      🧪
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#374151' }}>{idp.name}</span>
+                  </a>
+                </li>
+              ))}
+            </>
+          )}
           <li className="spid-idp-support-link">
             <a className="dropdown-item" href="https://www.spid.gov.it" target="_blank" rel="noopener noreferrer">
               Maggiori informazioni

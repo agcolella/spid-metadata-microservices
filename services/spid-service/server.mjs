@@ -21,10 +21,31 @@ const DEFAULT_IDP_ENTITY_ID =
 const SP_KEY  = fs.readFileSync(path.resolve(__dirname, process.env.SP_KEY_PATH),  'utf8');
 const SP_CERT = fs.readFileSync(path.resolve(__dirname, process.env.SP_CERT_PATH), 'utf8');
 
-const IDP_METADATA = fs.readFileSync(
-  path.resolve(__dirname, './idp-metadata/demo-idp-metadata.xml'),
-  'utf8'
+// ── Carica e fonde i metadata IdP ────────────────────────────
+// 1. Validator (per test)
+const xmlValidator = fs.readFileSync(
+  path.resolve(__dirname, './idp-metadata/demo-idp-metadata.xml'), 'utf8'
 );
+
+// 2. Registro produzione AgID (tutti gli IdP accreditati)
+const xmlRegistry = fs.readFileSync(
+  path.resolve(__dirname, './idp-metadata/all-idp-metadata.xml'), 'utf8'
+);
+
+// Estrai tutti gli EntityDescriptor da entrambi i file e avvolgili
+// in un unico EntitiesDescriptor (formato accettato da getIdentityProviders)
+const extractEntities = (xml) =>
+  [...xml.matchAll(/<(?:md:)?EntityDescriptor[\s\S]*?<\/(?:md:)?EntityDescriptor>/g)]
+    .map(m => m[0])
+    .join('\n');
+
+const IDP_METADATA = `<?xml version="1.0"?>
+<md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata">
+${extractEntities(xmlValidator)}
+${extractEntities(xmlRegistry)}
+</md:EntitiesDescriptor>`;
+
+console.log(`[spid] Caricati ${(IDP_METADATA.match(/EntityDescriptor/g)||[]).length/2} IdP`);
 
 // ── Cache SENZA scadenza automatica ──────────────────────────
 // passport-spid cerca l'InResponseTo tra AuthnRequest e SAMLResponse.

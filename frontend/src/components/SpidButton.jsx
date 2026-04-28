@@ -5,18 +5,18 @@ const SPID_SERVICE_URL = process.env.REACT_APP_SPID_SERVICE_URL
 
 // Lista IdP di produzione (entityID ufficiali AgID)
 const IDP_LIST = [
-  { id: 'arubaid',       name: 'Aruba ID',            entityId: 'https://loginspid.aruba.it' },
-  { id: 'infocertid',    name: 'Infocert ID',          entityId: 'https://identity.infocert.it' },
-  { id: 'intesiid',      name: 'Intesi Group ID',      entityId: 'https://spid.intesigroup.com' },
-  { id: 'lepidaid',      name: 'Lepida ID',            entityId: 'https://id.lepida.it/idp/shibboleth' },
-  { id: 'namirialid',    name: 'Namirial ID',          entityId: 'https://idp.namirialtsp.com/idp' },
-  { id: 'posteid',       name: 'Poste ID',             entityId: 'https://posteid.poste.it' },
-  { id: 'sielteid',      name: 'Sielte ID',            entityId: 'https://identity.sieltecloud.it' },
-  { id: 'spiditaliaid',  name: 'SPIDItalia Register',  entityId: 'https://spid.register.it' },
-  { id: 'teamsystemid',  name: 'TeamSystem ID',        entityId: 'https://spid.teamsystem.com/idp' },
-  { id: 'timid',         name: 'TIM ID',               entityId: 'https://login.id.tim.it/affwebservices/public/saml2sso' },
-  { id: 'etnaid',        name: 'Etna ID',              entityId: 'https://id.eht.eu' },
-  { id: 'infocamereid',  name: 'InfoCamere ID',        entityId: 'https://loginspid.infocamere.it' },
+  { id: 'arubaid',          name: 'Aruba ID',          entityId: 'https://loginspid.aruba.it' },
+  { id: 'infocertid',       name: 'Infocert ID',        entityId: 'https://identity.infocert.it' },
+  { id: 'intesigroupspid',  name: 'Intesi Group ID',    entityId: 'https://spid.intesigroup.com' },
+  { id: 'lepidaid',         name: 'Lepida ID',          entityId: 'https://id.lepida.it/idp/shibboleth' },
+  { id: 'namirialid',       name: 'Namirial ID',        entityId: 'https://idp.namirialtsp.com/idp' },
+  { id: 'posteid',          name: 'Poste ID',           entityId: 'https://posteid.poste.it' },
+  { id: 'sielteid',         name: 'Sielte ID',          entityId: 'https://identity.sieltecloud.it' },
+  { id: 'spiditalia',       name: 'SPIDItalia',         entityId: 'https://spid.register.it' },
+  { id: 'teamsystemid',     name: 'TeamSystem ID',      entityId: 'https://spid.teamsystem.com/idp' },
+  { id: 'timid',            name: 'TIM ID',             entityId: 'https://login.id.tim.it/affwebservices/public/saml2sso' },
+  { id: 'etnaid',           name: 'Etna ID',            entityId: 'https://id.eht.eu' },
+  { id: 'infocamereid',     name: 'InfoCamere ID',      entityId: 'https://loginspid.infocamere.it' },
 ];
 
 // Mescola in ordine random (requisito AgID)
@@ -91,8 +91,20 @@ export default function SpidButton({ size = 'l' }) {
                 <span className="spid-sr-only">{idp.name}</span>
                 <img
                   src={`/spid/img/spid-idp-${idp.id}.svg`}
-                  onError={e => { e.target.src = `/spid/img/spid-idp-${idp.id}.png`; e.target.onerror = null; }}
+                  onError={e => {
+                    // Prova PNG solo una volta, poi smetti
+                    if (!e.target.dataset.fallback) {
+                      e.target.dataset.fallback = '1';
+                      e.target.src = `/spid/img/spid-idp-${idp.id}.png`;
+                    } else {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                    }
+                  }}
                   alt={idp.name}
+                  width={120}
+                  height={30}
+                  loading="lazy"
                 />
               </a>
             </li>

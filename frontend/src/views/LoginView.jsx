@@ -4,6 +4,30 @@ import { API } from '../constants';
 import { notify } from '../services/notificationService';
 import SpidButton from '../components/SpidButton';
 
+const SPID_ERROR_MESSAGES = {
+  // Anomalie utente (Tabella messaggi SPID v1.3)
+  spid_error_19: 'Anomalia 19 — Il provider ha negato l'accesso per credenziali errate ripetutamente.',
+  spid_error_20: 'Anomalia 20 — L'utente è privo di credenziali compatibili con il livello richiesto.',
+  spid_error_21: 'Anomalia 21 — Timeout della sessione di autenticazione.',
+  spid_error_22: 'Anomalia 22 — L'utente ha negato il consenso all'invio degli attributi.',
+  spid_error_23: 'Anomalia 23 — Le credenziali SPID sono temporaneamente bloccate.',
+  spid_error_25: 'Anomalia 25 — L'autenticazione è stata annullata dall'utente.',
+  // Errori tecnici
+  spid_authn_failed: 'Autenticazione SPID fallita. Riprova.',
+  spid_no_authn_context: 'Livello di autenticazione non soddisfatto. Riprova con credenziali di livello 2.',
+  no_user:             'Autenticazione SPID non completata. Nessun profilo ricevuto.',
+  spid_callback:       'Accesso SPID non riuscito. Riprova.',
+  spid:                'Errore durante l'accesso con SPID. Riprova.',
+};
+
+function getSpidErrorMessage(code, reason) {
+  if (!code) return null;
+  if (SPID_ERROR_MESSAGES[code]) return SPID_ERROR_MESSAGES[code];
+  // reason è il messaggio tecnico passato da ?reason=
+  if (reason) return `Errore SPID: ${decodeURIComponent(reason)}`;
+  return `Errore SPID (${code}). Riprova.`;
+}
+
 export function LoginView({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +48,10 @@ export function LoginView({ onLogin }) {
     finally  { setLoading(false); }
   };
 
-  const spidError = new URLSearchParams(window.location.search).get('error');
+  const params    = new URLSearchParams(window.location.search);
+  const spidError = params.get('error');
+  const spidReason = params.get('reason');
+  const errorMsg  = getSpidErrorMessage(spidError, spidReason);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center',
@@ -49,7 +76,8 @@ export function LoginView({ onLogin }) {
           <button type="submit" disabled={loading}
             style={{ width: '100%', padding: '12px', background: '#3b82f6', color: '#fff',
               border: 'none', borderRadius: 6, fontWeight: 600, fontSize: '1rem',
-              cursor: 'pointer' }}>
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Accesso...' : 'Accedi'}
           </button>
         </form>
@@ -61,19 +89,28 @@ export function LoginView({ onLogin }) {
           <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
         </div>
 
-        {/* ✅ Bottone ufficiale AgID con dropdown IdP */}
+        {/* Bottone ufficiale AgID con dropdown IdP */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <SpidButton size="l" />
         </div>
 
-        {/* Errore callback SPID */}
-        {spidError && (
-          <p style={{ color: '#dc2626', textAlign: 'center',
-            marginTop: 16, fontSize: '0.875rem' }}>
-            {spidError === 'spid_callback'
-              ? 'Accesso SPID non riuscito. Riprova.'
-              : `Errore SPID: ${spidError}`}
-          </p>
+        {/* Errore SPID con messaggio descrittivo */}
+        {errorMsg && (
+          <div role="alert" style={{
+            marginTop: 20,
+            padding: '12px 16px',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: 8,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+          }}>
+            <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
+            <p style={{ color: '#b91c1c', margin: 0, fontSize: '0.875rem', lineHeight: 1.5 }}>
+              {errorMsg}
+            </p>
+          </div>
         )}
       </div>
     </div>

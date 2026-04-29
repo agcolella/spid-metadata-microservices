@@ -249,22 +249,46 @@ app.post(
   '/spid/acs',
   express.urlencoded({ extended: false }),
   (req, res, next) => {
+    // Decodifica la Response per intercettare StatusCode prima di passport
+    let spidError = null;
+    try {
+      const samlXml = Buffer.from(req.body?.SAMLResponse || '', 'base64').toString('utf8');
+      const statusCode = samlXml.match(/StatusCode[^>]+Value="([^"]+)"/)?.[1];
+      const statusMessage = samlXml.match(/<[^>]*StatusMessage[^>]*>([^<]+)<\/[^>]*StatusMessage>/)?.[1];
+
+      if (statusCode && statusCode !== 'urn:oasis:names:tc:SAML:2.0:status:Success') {
+        // Mappa anomalie SPID (tabella messaggi SPID v1.3)
+        const SPID_ERRORS = {
+          'urn:oasis:names:tc:SAML:2.0:status:AuthnFailed': 'spid_authn_failed',
+          'urn:oasis:names:tc:SAML:2.0:status:NoAuthnContext': 'spid_no_authn_context',
+        };
+        // Estrai codice anomalia dal StatusMessage (es. "ErrorCode nr19")
+        const anomalyMatch = statusMessage?.match(/ErrorCode\s+nr(\d+)/i);
+        const anomalyCode  = anomalyMatch ? `spid_error_${anomalyMatch[1]}` : 'spid_error';
+        spidError = SPID_ERRORS[statusCode] || anomalyCode;
+      }
+    } catch {}
+
+    if (spidError) {
+      const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+      return res.redirect(`${returnTo}/login?error=${spidError}`);
+    }
+
     console.log('[acs] POST — RelayState:', req.body?.RelayState);
     console.log('[acs] cache keys:', [..._cache.keys()]);
-    console.log('[acs] InResponseTo:', req.body?.SAMLResponse 
-  ? Buffer.from(req.body.SAMLResponse, 'base64').toString().match(/InResponseTo="([^"]+)"/)?.[1]
-  : 'N/A');
 
     passport.authenticate('spid', { session: false }, (err, user, info) => {
       if (err) {
         console.error('[acs] ERRORE:', err.message);
+        const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
         return res.redirect(
-          `${process.env.FRONTEND_URL}/login?error=spid&reason=${encodeURIComponent(err.message)}`
+          `${returnTo}/login?error=spid&reason=${encodeURIComponent(err.message)}`
         );
       }
       if (!user) {
         console.error('[acs] Nessun utente. Info:', JSON.stringify(info));
-        return res.redirect(`${process.env.FRONTEND_URL}/login?error=spid&reason=no_user`);
+        const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+        return res.redirect(`${returnTo}/login?error=spid&reason=no_user`);
       }
       console.log('[acs] Login OK — spidCode:', user.spidCode || user.nameID);
 
@@ -282,12 +306,10 @@ app.post(
         { expiresIn: '8h' }
       );
 
-      let returnTo = process.env.FRONTEND_URL;
+      let returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
       try {
         const rs = parseRelayState(req.body?.RelayState);
-        // Rimuovi trailing slash per evitare doppio slash nel path
-        const base = (rs.returnTo || process.env.FRONTEND_URL).replace(/\/$/, '');
-        returnTo = base;
+        if (rs.returnTo) returnTo = rs.returnTo.replace(/\/+$/, '');
       } catch {}
 
       return res.redirect(`${returnTo}/auth/callback#token=${token}`);

@@ -20,10 +20,34 @@ const SP_KEY  = fs.readFileSync(path.resolve(__dirname, process.env.SP_KEY_PATH)
 const SP_CERT = fs.readFileSync(path.resolve(__dirname, process.env.SP_CERT_PATH), 'utf8');
 
 // ── Metadata IdP ──────────────────────────────────────────────
-const IDP_METADATA = fs.readFileSync(
-  path.resolve(__dirname, './idp-metadata/demo-idp-metadata.xml'),
-  'utf8'
+const xmlValidator = fs.readFileSync(
+  path.resolve(__dirname, './idp-metadata/demo-idp-metadata.xml'), 'utf8'
 );
+
+// ← AGGIUNGI QUESTO
+const xmlDemoValidator = fs.readFileSync(
+  path.resolve(__dirname, './idp-metadata/validator-idp-metadata.xml'), 'utf8'
+);
+
+const xmlRegistry = fs.readFileSync(
+  path.resolve(__dirname, './idp-metadata/all-idp-metadata.xml'), 'utf8'
+);
+
+// Nel IDP_METADATA combinato:
+const IDP_METADATA = `<?xml version="1.0"?>
+<md:EntitiesDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata">
+${extractEntities(xmlValidator)}
+${extractEntities(xmlDemoValidator)}   ← AGGIUNGI
+${extractEntities(xmlRegistry)}
+${extractEntities(xmlAgidValidator)}
+</md:EntitiesDescriptor>`;
+
+
+
+//const IDP_METADATA = fs.readFileSync(
+//  path.resolve(__dirname, './idp-metadata/demo-idp-metadata.xml'),
+//  'utf8'
+//);
 
 // ── Cache in-memory ───────────────────────────────────────────
 const _cache = new Map();

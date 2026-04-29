@@ -100,7 +100,11 @@ const cache = {
     return Promise.resolve();
   },
 };
-
+// DEBUG — rimuovere dopo il fix
+const entityIds = [...IDP_METADATA.matchAll(/entityID="([^"]+)"/g)].map(m => m[1]);
+console.log('[spid] EntityID nel registro:\n' + entityIds.join('\n'));
+console.log('[spid] IDP_METADATA length:', IDP_METADATA.length);
+console.log('[spid] agid raw incluso:', IDP_METADATA.includes('validator.spid.gov.it'));
 // ── SpidStrategy ──────────────────────────────────────────────
 const spidStrategy = new SpidStrategy(
   {

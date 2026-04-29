@@ -244,6 +244,9 @@ app.post(
   (req, res, next) => {
     console.log('[acs] POST — RelayState:', req.body?.RelayState);
     console.log('[acs] cache keys:', [..._cache.keys()]);
+    console.log('[acs] InResponseTo:', req.body?.SAMLResponse 
+  ? Buffer.from(req.body.SAMLResponse, 'base64').toString().match(/InResponseTo="([^"]+)"/)?.[1]
+  : 'N/A');
 
     passport.authenticate('spid', { session: false }, (err, user, info) => {
       if (err) {

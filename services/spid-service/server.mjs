@@ -60,7 +60,7 @@ const xmlRegistry = fs.readFileSync(
 
 // 4. AgID Validator ufficiale (opzionale)
 const agidPath = path.resolve(__dirname, './idp-metadata/agid-validator-metadata.xml');
-const xmlAgid  = fs.existsSync(agidPath) ? fs.readFileSync(agidPath, 'utf8') : '';
+const xmlAgidRaw  = fs.existsSync(agidPath) ? fs.readFileSync(agidPath, 'utf8') : '';
 
 // ── Combina tutti gli IdP ─────────────────────────────────────
 const IDP_METADATA = `<?xml version="1.0"?>
@@ -68,7 +68,7 @@ const IDP_METADATA = `<?xml version="1.0"?>
 ${extractEntities(xmlDemo)}
 ${extractEntities(xmlDemoValidator)}
 ${extractEntities(xmlRegistry)}
-${extractEntities(xmlAgid)}
+${xmlAgidRaw}
 </md:EntitiesDescriptor>`;
 
 const idpCount = (IDP_METADATA.match(/<\/(?:md:)?EntityDescriptor>/g) || []).length;

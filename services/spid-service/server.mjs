@@ -283,7 +283,12 @@ app.post(
       );
 
       let returnTo = process.env.FRONTEND_URL;
-      try { returnTo = parseRelayState(req.body?.RelayState).returnTo || returnTo; } catch {}
+      try {
+        const rs = parseRelayState(req.body?.RelayState);
+        // Rimuovi trailing slash per evitare doppio slash nel path
+        const base = (rs.returnTo || process.env.FRONTEND_URL).replace(/\/$/, '');
+        returnTo = base;
+      } catch {}
 
       return res.redirect(`${returnTo}/auth/callback#token=${token}`);
     })(req, res, next);

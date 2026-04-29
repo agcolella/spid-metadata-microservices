@@ -179,7 +179,14 @@ passport.serializeUser((user, done)   => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
 // ── Middleware ────────────────────────────────────────────────
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL,
+    'https://validator.spid.gov.it',
+    'https://demo.spid.gov.it',
+  ],
+  credentials: true,
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({

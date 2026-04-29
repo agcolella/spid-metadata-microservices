@@ -17,7 +17,7 @@ const SPID_ERROR_MESSAGES = {
   spid_no_authn_context: 'Livello di autenticazione non soddisfatto. Riprova con credenziali di livello 2.',
   no_user:             'Autenticazione SPID non completata. Nessun profilo ricevuto.',
   spid_callback:       'Accesso SPID non riuscito. Riprova.',
-  spid:                'Errore durante l'accesso con SPID. Riprova.',
+  spid:                'Errore durante l\'accesso con SPID. Riprova.',
 };
 
 function getSpidErrorMessage(code, reason) {

@@ -186,13 +186,21 @@ app.use(passport.session());
 // Iniettiamo il default se non specificato.
 app.get('/spid/metadata', async (req, res) => {
   try {
-    if (!req.query.idp) req.query = { ...req.query, idp: DEFAULT_IDP };
+    // Non modificare req.query direttamente — è read-only in questa versione di Express
+    // Inietta l'idp direttamente nella query object esistente
+    if (!req.query.idp) {
+      Object.defineProperty(req, 'query', {
+        value: { ...req.query, idp: DEFAULT_IDP },
+        writable: true,
+        configurable: true,
+      });
+    }
     console.log('[metadata] Usando idp:', req.query.idp);
     const xml = await spidStrategy.generateSpidServiceProviderMetadata();
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.send(xml);
   } catch (err) {
-    console.error('[metadata] ERRORE COMPLETO:', err.stack || err.message);
+    console.error('[metadata] ERRORE:', err.stack || err.message);
     res.status(500).json({ error: err.message });
   }
 });

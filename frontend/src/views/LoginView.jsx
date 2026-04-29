@@ -11,7 +11,7 @@ const SPID_ERROR_MESSAGES = {
   spid_error_21: 'Anomalia 21 — Timeout della sessione di autenticazione.',
   spid_error_22: 'Anomalia 22 — Utente ha negato il consenso per invio degli attributi.',
   spid_error_23: 'Anomalia 23 — Le credenziali SPID sono temporaneamente bloccate.',
-  spid_error_25: 'Anomalia 25 — Autenticazione annullata dall'utente.',
+  spid_error_25: 'Anomalia 25 — Autenticazione annullata da utente.',
   // Errori tecnici
   spid_authn_failed: 'Autenticazione SPID fallita. Riprova.',
   spid_no_authn_context: 'Livello di autenticazione non soddisfatto. Riprova con credenziali di livello 2.',

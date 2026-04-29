@@ -30,7 +30,7 @@ const TEST_IDP_LIST = [
   {
     id:       'validator-agid',
     name:     'AgID Validator ufficiale',
-    entityId: 'https://validator.spid.gov.it/saml/idp',
+    entityId: 'https://validator.spid.gov.it',
     isTest:   true,
   },
 ];

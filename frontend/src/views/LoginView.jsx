@@ -6,7 +6,7 @@ import SpidButton from '../components/SpidButton';
 
 const SPID_ERROR_MESSAGES = {
   // Anomalie utente (Tabella messaggi SPID v1.3)
-  spid_error_19: 'Anomalia 19 — Il provider ha negato l'accesso per credenziali errate ripetutamente.',
+  spid_error_19: 'Anomalia 19 — Il provider ha negato accesso per credenziali errate ripetutamente.',
   spid_error_20: 'Anomalia 20 — L'utente è privo di credenziali compatibili con il livello richiesto.',
   spid_error_21: 'Anomalia 21 — Timeout della sessione di autenticazione.',
   spid_error_22: 'Anomalia 22 — L'utente ha negato il consenso all'invio degli attributi.',

@@ -7,11 +7,11 @@ import SpidButton from '../components/SpidButton';
 const SPID_ERROR_MESSAGES = {
   // Anomalie utente (Tabella messaggi SPID v1.3)
   spid_error_19: 'Anomalia 19 — Il provider ha negato accesso per credenziali errate ripetutamente.',
-  spid_error_20: 'Anomalia 20 — L'utente è privo di credenziali compatibili con il livello richiesto.',
+  spid_error_20: 'Anomalia 20 — Utente  privo di credenziali compatibili con il livello richiesto.',
   spid_error_21: 'Anomalia 21 — Timeout della sessione di autenticazione.',
-  spid_error_22: 'Anomalia 22 — L'utente ha negato il consenso all'invio degli attributi.',
+  spid_error_22: 'Anomalia 22 — Utente ha negato il consenso per invio degli attributi.',
   spid_error_23: 'Anomalia 23 — Le credenziali SPID sono temporaneamente bloccate.',
-  spid_error_25: 'Anomalia 25 — L'autenticazione è stata annullata dall'utente.',
+  spid_error_25: 'Anomalia 25 — Autenticazione annullata dall'utente.',
   // Errori tecnici
   spid_authn_failed: 'Autenticazione SPID fallita. Riprova.',
   spid_no_authn_context: 'Livello di autenticazione non soddisfatto. Riprova con credenziali di livello 2.',

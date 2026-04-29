@@ -25,7 +25,19 @@ const SP_CERT = fs.readFileSync(path.resolve(__dirname, process.env.SP_CERT_PATH
 function extractEntities(xml) {
   if (!xml) return '';
   return [...xml.matchAll(/<(?:md:)?EntityDescriptor[\s\S]*?<\/(?:md:)?EntityDescriptor>/g)]
-    .filter(m => m[0].includes('X509Certificate'))
+    .filter(m => {
+      const block = m[0];
+      // Deve avere un KeyDescriptor con X509Certificate non vuoto
+      // (NON il cert della firma ds:Signature)
+      const keyDescMatch = block.match(
+        /<(?:md:)?KeyDescriptor[\s\S]*?<\/(?:md:)?KeyDescriptor>/g
+      );
+      if (!keyDescMatch) return false;
+      return keyDescMatch.some(kd => {
+        const certMatch = kd.match(/<[^>]*X509Certificate[^>]*>([^<]+)<\/[^>]*X509Certificate>/);
+        return certMatch && certMatch[1].trim().length > 0;
+      });
+    })
     .map(m => m[0])
     .join('\n');
 }

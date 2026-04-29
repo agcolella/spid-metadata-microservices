@@ -42,6 +42,24 @@ function extractEntities(xml) {
     .join('\n');
 }
 
+// Sostituisci ogni uso di JSON.parse(req.body?.RelayState)
+// con questa funzione helper:
+function parseRelayState(raw) {
+  if (!raw) return {};
+  try {
+    // Prova prima Base64
+    const decoded = Buffer.from(raw, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch {
+    try {
+      // Fallback: JSON diretto (compatibilità con richieste vecchie)
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+}
+
 // ── Carica metadata IdP ───────────────────────────────────────
 
 // 1. Demo IdP  (entityID: https://demo.spid.gov.it)
@@ -121,11 +139,7 @@ const spidStrategy = new SpidStrategy(
 
       getIDPEntityIdFromRequest: (req) => {
         if (req.query?.idp) return req.query.idp;
-        try {
-          return JSON.parse(req.body?.RelayState || '{}').idp || DEFAULT_IDP;
-        } catch {
-          return DEFAULT_IDP;
-        }
+        return parseRelayState(req.body?.RelayState).idp || DEFAULT_IDP;
       },
 
       IDPRegistryMetadata: IDP_METADATA,
@@ -210,12 +224,15 @@ app.get('/spid/login', (req, res, next) => {
   const idp = req.query.idp || DEFAULT_IDP;
   console.log(`[login] idp=${idp}`);
   req.session.idpEntityId = idp;
+
+  // RelayState codificato in Base64 — non deve essere in chiaro (check SPID n°26)
+  const relayStateRaw = JSON.stringify({ idp, returnTo: process.env.FRONTEND_URL });
+  const relayState    = Buffer.from(relayStateRaw).toString('base64');
+
   req.session.save(() => {
     passport.authenticate('spid', {
       session: false,
-      additionalParams: {
-        RelayState: JSON.stringify({ idp, returnTo: process.env.FRONTEND_URL }),
-      },
+      additionalParams: { RelayState: relayState },
     })(req, res, next);
   });
 });
@@ -256,7 +273,7 @@ app.post(
       );
 
       let returnTo = process.env.FRONTEND_URL;
-      try { returnTo = JSON.parse(req.body?.RelayState || '{}').returnTo || returnTo; } catch {}
+      try { returnTo = parseRelayState(req.body?.RelayState).returnTo || returnTo; } catch {}
 
       return res.redirect(`${returnTo}/auth/callback#token=${token}`);
     })(req, res, next);

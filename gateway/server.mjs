@@ -82,7 +82,7 @@ const ROUTE_ROLES = {
   '/api/files':       'viewer',
   '/api/validate':    'viewer',
   '/api/certificates':'viewer',
-  '/api/github':      'admin',
+  '/api/github':      'operator',
   '/api/pr':          'operator',
   '/api/batch':       'operator',
 };

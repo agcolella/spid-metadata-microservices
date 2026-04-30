@@ -48,6 +48,39 @@ router.post('/login', async (req, res) => {
   });
 });
 
+// routes/authRoutes.js
+router.post('/spid-login', async (req, res) => {
+  // req.body conterrà i dati provenienti dall'asserzione SAML
+  // (già validata dallo spid-service)
+  const { fiscalNumber, name, familyName, email, spidLevel } = req.body;
+
+  // 1. trova o crea l'utente locale mappato sul CF
+  let user = await userService.findByFiscalNumber(fiscalNumber);
+  if (!user) {
+    user = await userService.createFromSpid({ fiscalNumber, name, familyName, email });
+  }
+  if (!user.active) return res.status(403).json({ error: 'Utente disabilitato' });
+
+  await userService.updateLastLogin(user.id);
+
+  const accessToken  = tokenService.generateAccessToken(user);
+  const refreshToken = await tokenService.generateRefreshToken(user.id);
+
+  await auditService.log({
+    userId: user.id, username: user.username,
+    action: 'spid_login', status: 'success',
+    details: { spidLevel }, ip: ip(req), userAgent: ua(req)
+  });
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const hash = new URLSearchParams({
+    accessToken,
+    refreshToken,
+    mustChangePassword: user.must_change_password ? '1' : '0'
+  }).toString();
+  res.redirect(`${frontendUrl}/auth/callback#${hash}`);
+  res.json({ accessToken, refreshToken, user, mustChangePassword: false });
+});
+
 router.post('/refresh', async (req, res) => {
   const { userId, refreshToken } = req.body;
   if (!userId || !refreshToken)

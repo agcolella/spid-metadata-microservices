@@ -60,6 +60,23 @@ function parseRelayState(raw) {
   }
 }
 
+// Helper: JWT locale di fallback (quando AUTH_SERVICE_URL non è configurata)
+function _makeLocalJwt(user) {
+  return jwt.sign(
+    {
+      sub:         user.spidCode     || user.nameID || null,
+      fiscalCode:  user.fiscalNumber || null,
+      name:        user.name         || null,
+      familyName:  user.familyName   || null,
+      email:       user.email        || null,
+      role:        'viewer',
+      loginMethod: 'spid',
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+}
+
 // ── Carica metadata IdP ───────────────────────────────────────
 
 // 1. Demo IdP  (entityID: https://demo.spid.gov.it)
@@ -277,43 +294,79 @@ app.post(
     console.log('[acs] POST — RelayState:', req.body?.RelayState);
     console.log('[acs] cache keys:', [..._cache.keys()]);
 
-    passport.authenticate('spid', { session: false }, (err, user, info) => {
-      if (err) {
-        console.error('[acs] ERRORE:', err.message);
+// ── ACS ───────────────────────────────────────────────────────
+// Sostituisci il callback di passport.authenticate con questo:
+
+passport.authenticate('spid', { session: false }, async (err, user, info) => {
+  if (err) {
+    console.error('[acs] ERRORE:', err.message);
+    const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+    return res.redirect(
+      `${returnTo}/login?error=spid&reason=${encodeURIComponent(err.message)}`
+    );
+  }
+  if (!user) {
+    console.error('[acs] Nessun utente. Info:', JSON.stringify(info));
+    const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+    return res.redirect(`${returnTo}/login?error=spid&reason=no_user`);
+  }
+  console.log('[acs] Login OK — spidCode:', user.spidCode || user.nameID);
+
+  let accessToken, refreshToken;
+
+  // ── Chiama auth-service per trovare/creare utente e ottenere JWT ──
+  const authServiceUrl = process.env.AUTH_SERVICE_URL;
+  if (authServiceUrl) {
+    try {
+      const authRes = await fetch(`${authServiceUrl}/auth/spid-login`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fiscalNumber: user.fiscalNumber || null,
+          spidCode:     user.spidCode     || user.nameID || null,
+          name:         user.name         || null,
+          familyName:   user.familyName   || null,
+          email:        user.email        || null,
+        }),
+      });
+
+      if (!authRes.ok) {
+        const body = await authRes.json().catch(() => ({}));
+        console.error('[acs] auth-service error:', body);
         const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-        return res.redirect(
-          `${returnTo}/login?error=spid&reason=${encodeURIComponent(err.message)}`
-        );
+        return res.redirect(`${returnTo}/login?error=auth_service&reason=${encodeURIComponent(body.error || authRes.status)}`);
       }
-      if (!user) {
-        console.error('[acs] Nessun utente. Info:', JSON.stringify(info));
-        const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-        return res.redirect(`${returnTo}/login?error=spid&reason=no_user`);
-      }
-      console.log('[acs] Login OK — spidCode:', user.spidCode || user.nameID);
 
-      const token = jwt.sign(
-        {
-          sub:        user.spidCode     || user.nameID || null,
-          fiscalCode: user.fiscalNumber || null,
-          name:       user.name         || null,
-          familyName: user.familyName   || null,
-          email:      user.email        || null,
-          role:       'user',
-          loginMethod: 'spid',
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: '8h' }
-      );
+      const tokens = await authRes.json();
+      accessToken  = tokens.accessToken;
+      refreshToken = tokens.refreshToken;
 
-      let returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-      try {
-        const rs = parseRelayState(req.body?.RelayState);
-        if (rs.returnTo) returnTo = rs.returnTo.replace(/\/+$/, '');
-      } catch {}
+    } catch (fetchErr) {
+      console.error('[acs] fetch auth-service fallito:', fetchErr.message);
+      // Fallback: emetti JWT locale se auth-service non raggiungibile
+      accessToken = _makeLocalJwt(user);
+    }
+  } else {
+    // Nessun auth-service configurato: JWT locale (utile in sviluppo)
+    console.warn('[acs] AUTH_SERVICE_URL non impostata — JWT locale');
+    accessToken = _makeLocalJwt(user);
+  }
 
-      return res.redirect(`${returnTo}/auth/callback#token=${token}`);
-    })(req, res, next);
+  // ── Redirect al frontend ──────────────────────────────────────
+  let returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+  try {
+    const rs = parseRelayState(req.body?.RelayState);
+    if (rs.returnTo) returnTo = rs.returnTo.replace(/\/+$/, '');
+  } catch {}
+
+  // Usa query param (NON fragment hash) — il fragment non arriva al server
+  // ma soprattutto React può leggerlo solo con window.location.hash,
+  // ed è scomodo da pulire. I query param sono più semplici e sicuri.
+  const params = new URLSearchParams({ token: accessToken });
+  if (refreshToken) params.set('refreshToken', refreshToken);
+
+  return res.redirect(`${returnTo}?${params}`);
+})(req, res, next);
   }
 );
 

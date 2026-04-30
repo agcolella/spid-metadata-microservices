@@ -61,6 +61,23 @@ try {
   // colonna già presente — ignorato
 }
 
+// ── Migration: colonne SPID (aggiungere DOPO la migration must_change_password) ──
+for (const sql of [
+  `ALTER TABLE users ADD COLUMN fiscal_number    TEXT UNIQUE DEFAULT NULL`,
+  `ALTER TABLE users ADD COLUMN spid_name        TEXT DEFAULT NULL`,
+  `ALTER TABLE users ADD COLUMN spid_family_name TEXT DEFAULT NULL`,
+]) {
+  try {
+    await db.execute(sql);
+    console.log(`🔄 Migration: colonna aggiunta → ${sql.match(/ADD COLUMN (\w+)/)[1]}`);
+  } catch {
+    // colonna già presente — ignorato
+  }
+}
+try {
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_users_fiscal ON users(fiscal_number)`);
+} catch { /* già esiste */ }
+
 // ── Seed admin ────────────────────────────────────────────
 const { rows } = await db.execute(`SELECT id FROM users WHERE username = 'admin'`);
 if (!rows.length) {

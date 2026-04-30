@@ -14,7 +14,6 @@ export const ROLE_NAMES = Object.keys(ROLES);
 function safeUser(row) {
   if (!row) return null;
   const { password_hash, ...safe } = row;
-  // must_change_password passa automaticamente nel safe spread
   return safe;
 }
 
@@ -35,6 +34,61 @@ export class UserService {
     return rows[0] ?? null;
   }
 
+  // ── SPID: cerca utente per codice fiscale ─────────────────
+  async findByFiscalNumber(fiscalNumber) {
+    if (!fiscalNumber) return null;
+    const { rows } = await db.execute({
+      sql:  `SELECT * FROM users WHERE fiscal_number = ?`,
+      args: [fiscalNumber.toUpperCase()]
+    });
+    return safeUser(rows[0] ?? null);
+  }
+
+  // ── SPID: crea utente da asserzione SAML ──────────────────
+  // L'utente SPID non ha password locale: password_hash = stringa
+  // non valida per bcrypt (impossibile fare login classico).
+  // role di default 'viewer', active=1, must_change_password=0
+  // perché l'identità è garantita da SPID.
+  async createFromSpid({ fiscalNumber, name, familyName, email, role = 'viewer' }) {
+    if (!fiscalNumber) throw new Error('fiscalNumber obbligatorio per utenti SPID');
+    if (!ROLE_NAMES.includes(role)) throw new Error(`Ruolo non valido: ${role}`);
+
+    const cf = fiscalNumber.toUpperCase();
+
+    // Controlla duplicati CF
+    const { rows: existing } = await db.execute({
+      sql:  `SELECT id FROM users WHERE fiscal_number = ?`,
+      args: [cf]
+    });
+    if (existing.length) throw new Error(`Utente SPID con CF ${cf} già presente`);
+
+    // username = CF (univoco per legge), email opzionale
+    const username  = cf;
+    const safeEmail = email || `${cf.toLowerCase()}@spid.local`;
+
+    // Controlla eventuale collisione username/email con utenti classici
+    const { rows: clash } = await db.execute({
+      sql:  `SELECT id FROM users WHERE username = ? OR email = ?`,
+      args: [username, safeEmail]
+    });
+    if (clash.length) throw new Error('Username o email già in uso');
+
+    const id = uuidv4();
+    // Password placeholder: non è un hash bcrypt valido → login classico impossibile
+    const invalidHash = `spid:${uuidv4()}`;
+
+    await db.execute({
+      sql: `INSERT INTO users
+              (id, username, email, password_hash, role, active,
+               must_change_password, fiscal_number, spid_name, spid_family_name)
+            VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?, ?)`,
+      args: [id, username, safeEmail, invalidHash, role, cf,
+             name ?? null, familyName ?? null]
+    });
+
+    return this.findById(id);
+  }
+
   async list({ page = 1, limit = 20, role, active, search } = {}) {
     let where = `WHERE 1=1`;
     const params = [];
@@ -48,6 +102,7 @@ export class UserService {
 
     const { rows: users } = await db.execute({
       sql:  `SELECT id, username, email, role, active, must_change_password,
+                    fiscal_number, spid_name, spid_family_name,
                     created_at, updated_at, last_login
              FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
       args: [...params, limit, (page - 1) * limit]
@@ -70,7 +125,6 @@ export class UserService {
     const id   = uuidv4();
     const hash = bcrypt.hashSync(password, 12);
 
-    // must_change_password = 1: il nuovo utente deve cambiare password al primo accesso
     await db.execute({
       sql:  `INSERT INTO users (id, username, email, password_hash, role, must_change_password)
              VALUES (?, ?, ?, ?, ?, 1)`,
@@ -144,6 +198,8 @@ export class UserService {
   async verifyCredentials(username, password) {
     const user = await this.findByUsername(username);
     if (!user || !user.active) return null;
+    // Gli utenti SPID hanno un placeholder non-bcrypt: blocca il login classico
+    if (!user.password_hash || user.password_hash.startsWith('spid:')) return null;
     if (!bcrypt.compareSync(password, user.password_hash)) return null;
     return safeUser(user);
   }

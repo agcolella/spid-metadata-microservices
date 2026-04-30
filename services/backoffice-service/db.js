@@ -10,19 +10,22 @@ const db = createClient(
     : { url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN }
 );
 
-// ── Schema ────────────────────────────────────────────────
+// ── Schema (include già tutte le colonne SPID) ────────────
 await db.executeMultiple(`
   CREATE TABLE IF NOT EXISTS users (
-    id            TEXT PRIMARY KEY,
-    username      TEXT UNIQUE NOT NULL,
-    email         TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL DEFAULT 'viewer',
-    active        INTEGER NOT NULL DEFAULT 1,
-    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    id                   TEXT PRIMARY KEY,
+    username             TEXT UNIQUE NOT NULL,
+    email                TEXT UNIQUE NOT NULL,
+    password_hash        TEXT NOT NULL,
+    role                 TEXT NOT NULL DEFAULT 'viewer',
+    active               INTEGER NOT NULL DEFAULT 1,
+    created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at           TEXT NOT NULL DEFAULT (datetime('now')),
     must_change_password INTEGER NOT NULL DEFAULT 0,
-    last_login    TEXT
+    last_login           TEXT,
+    fiscal_number        TEXT UNIQUE DEFAULT NULL,
+    spid_name            TEXT DEFAULT NULL,
+    spid_family_name     TEXT DEFAULT NULL
   );
 
   CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -53,27 +56,25 @@ await db.executeMultiple(`
   CREATE INDEX IF NOT EXISTS idx_tokens_user   ON refresh_tokens(user_id);
 `);
 
-// ── Migration: aggiunge must_change_password se il DB esiste già ─────────────
-try {
-  await db.execute(`ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`);
-  console.log('🔄 Migration: colonna must_change_password aggiunta');
-} catch (e) {
-  // colonna già presente — ignorato
-}
+// ── Migrations idempotenti per DB pre-esistenti ───────────
+// Ogni ALTER TABLE è in un try/catch separato:
+// se la colonna esiste già SQLite lancia un errore ignorato.
+const migrations = [
+  [`must_change_password`, `ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`],
+  [`fiscal_number`,        `ALTER TABLE users ADD COLUMN fiscal_number    TEXT UNIQUE DEFAULT NULL`],
+  [`spid_name`,            `ALTER TABLE users ADD COLUMN spid_name        TEXT DEFAULT NULL`],
+  [`spid_family_name`,     `ALTER TABLE users ADD COLUMN spid_family_name TEXT DEFAULT NULL`],
+];
 
-// ── Migration: colonne SPID (aggiungere DOPO la migration must_change_password) ──
-for (const sql of [
-  `ALTER TABLE users ADD COLUMN fiscal_number    TEXT UNIQUE DEFAULT NULL`,
-  `ALTER TABLE users ADD COLUMN spid_name        TEXT DEFAULT NULL`,
-  `ALTER TABLE users ADD COLUMN spid_family_name TEXT DEFAULT NULL`,
-]) {
+for (const [col, sql] of migrations) {
   try {
     await db.execute(sql);
-    console.log(`🔄 Migration: colonna aggiunta → ${sql.match(/ADD COLUMN (\w+)/)[1]}`);
+    console.log(`🔄 Migration: colonna aggiunta → ${col}`);
   } catch {
     // colonna già presente — ignorato
   }
 }
+
 try {
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_users_fiscal ON users(fiscal_number)`);
 } catch { /* già esiste */ }

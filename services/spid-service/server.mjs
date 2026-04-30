@@ -60,7 +60,15 @@ function parseRelayState(raw) {
   }
 }
 
-// Helper: JWT locale di fallback (quando AUTH_SERVICE_URL non è configurata)
+// ─────────────────────────────────────────────────────────────
+// SOSTITUISCI ANCHE questa funzione nel file (era JWT_SECRET):
+//
+// function _makeLocalJwt(user) {
+//   return jwt.sign({ ... }, process.env.JWT_SECRET, ...);  ← SBAGLIATO
+// }
+//
+// Versione corretta:
+
 function _makeLocalJwt(user) {
   return jwt.sign(
     {
@@ -72,8 +80,8 @@ function _makeLocalJwt(user) {
       role:        'viewer',
       loginMethod: 'spid',
     },
-    process.env.JWT_SECRET,
-    { expiresIn: '8h' }
+    process.env.JWT_ACCESS_SECRET,   // FIX: stesso segreto usato dal backoffice per verify
+    { expiresIn: process.env.JWT_ACCESS_EXP || '15m' }
   );
 }
 
@@ -266,20 +274,19 @@ app.post(
   '/spid/acs',
   express.urlencoded({ extended: false }),
   (req, res, next) => {
-    // Decodifica la Response per intercettare StatusCode prima di passport
+
+    // ── 1. Intercetta errori SAML prima di passport ───────────
     let spidError = null;
     try {
-      const samlXml = Buffer.from(req.body?.SAMLResponse || '', 'base64').toString('utf8');
-      const statusCode = samlXml.match(/StatusCode[^>]+Value="([^"]+)"/)?.[1];
+      const samlXml       = Buffer.from(req.body?.SAMLResponse || '', 'base64').toString('utf8');
+      const statusCode    = samlXml.match(/StatusCode[^>]+Value="([^"]+)"/)?.[1];
       const statusMessage = samlXml.match(/<[^>]*StatusMessage[^>]*>([^<]+)<\/[^>]*StatusMessage>/)?.[1];
 
       if (statusCode && statusCode !== 'urn:oasis:names:tc:SAML:2.0:status:Success') {
-        // Mappa anomalie SPID (tabella messaggi SPID v1.3)
         const SPID_ERRORS = {
-          'urn:oasis:names:tc:SAML:2.0:status:AuthnFailed': 'spid_authn_failed',
+          'urn:oasis:names:tc:SAML:2.0:status:AuthnFailed':    'spid_authn_failed',
           'urn:oasis:names:tc:SAML:2.0:status:NoAuthnContext': 'spid_no_authn_context',
         };
-        // Estrai codice anomalia dal StatusMessage (es. "ErrorCode nr19")
         const anomalyMatch = statusMessage?.match(/ErrorCode\s+nr(\d+)/i);
         const anomalyCode  = anomalyMatch ? `spid_error_${anomalyMatch[1]}` : 'spid_error';
         spidError = SPID_ERRORS[statusCode] || anomalyCode;
@@ -287,88 +294,92 @@ app.post(
     } catch {}
 
     if (spidError) {
-      const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-      return res.redirect(`${returnTo}/login?error=${spidError}`);
+      // FIX: il frontend è una SPA su / — LoginView legge ?error= da window.location.search
+      const base = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+      return res.redirect(`${base}/?error=${spidError}`);
     }
 
     console.log('[acs] POST — RelayState:', req.body?.RelayState);
     console.log('[acs] cache keys:', [..._cache.keys()]);
 
-// ── ACS ───────────────────────────────────────────────────────
-// Sostituisci il callback di passport.authenticate con questo:
+    // ── 2. Passport verifica l'asserzione SAML ────────────────
+    passport.authenticate('spid', { session: false }, async (err, user, info) => {
 
-passport.authenticate('spid', { session: false }, async (err, user, info) => {
-  if (err) {
-    console.error('[acs] ERRORE:', err.message);
-    const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-    return res.redirect(
-      `${returnTo}/login?error=spid&reason=${encodeURIComponent(err.message)}`
-    );
-  }
-  if (!user) {
-    console.error('[acs] Nessun utente. Info:', JSON.stringify(info));
-    const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-    return res.redirect(`${returnTo}/login?error=spid&reason=no_user`);
-  }
-  console.log('[acs] Login OK — spidCode:', user.spidCode || user.nameID);
+      const base = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
 
-  let accessToken, refreshToken;
-
-  // ── Chiama auth-service per trovare/creare utente e ottenere JWT ──
-  const authServiceUrl = process.env.AUTH_SERVICE_URL;
-  if (authServiceUrl) {
-    try {
-      const authRes = await fetch(`${authServiceUrl}/auth/spid-login`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fiscalNumber: user.fiscalNumber || null,
-          spidCode:     user.spidCode     || user.nameID || null,
-          name:         user.name         || null,
-          familyName:   user.familyName   || null,
-          email:        user.email        || null,
-        }),
-      });
-
-      if (!authRes.ok) {
-        const body = await authRes.json().catch(() => ({}));
-        console.error('[acs] auth-service error:', body);
-        const returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-        return res.redirect(`${returnTo}/login?error=auth_service&reason=${encodeURIComponent(body.error || authRes.status)}`);
+      if (err) {
+        console.error('[acs] ERRORE passport:', err.message);
+        return res.redirect(
+          `${base}/?error=spid&reason=${encodeURIComponent(err.message)}`
+        );
+      }
+      if (!user) {
+        console.error('[acs] Nessun utente. Info:', JSON.stringify(info));
+        return res.redirect(`${base}/?error=spid&reason=no_user`);
       }
 
-      const tokens = await authRes.json();
-      accessToken  = tokens.accessToken;
-      refreshToken = tokens.refreshToken;
+      console.log('[acs] Login OK — spidCode:', user.spidCode || user.nameID);
 
-    } catch (fetchErr) {
-      console.error('[acs] fetch auth-service fallito:', fetchErr.message);
-      // Fallback: emetti JWT locale se auth-service non raggiungibile
-      accessToken = _makeLocalJwt(user);
-    }
-  } else {
-    // Nessun auth-service configurato: JWT locale (utile in sviluppo)
-    console.warn('[acs] AUTH_SERVICE_URL non impostata — JWT locale');
-    accessToken = _makeLocalJwt(user);
-  }
+      // ── 3. Ottieni JWT ────────────────────────────────────────
+      let accessToken, refreshToken, mustChangePassword = false;
 
-  // ── Redirect al frontend ──────────────────────────────────────
-  let returnTo = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
-  try {
-    const rs = parseRelayState(req.body?.RelayState);
-    if (rs.returnTo) returnTo = rs.returnTo.replace(/\/+$/, '');
-  } catch {}
+      const authServiceUrl = process.env.AUTH_SERVICE_URL;
 
-  // Usa query param (NON fragment hash) — il fragment non arriva al server
-  // ma soprattutto React può leggerlo solo con window.location.hash,
-  // ed è scomodo da pulire. I query param sono più semplici e sicuri.
-  const params = new URLSearchParams({ token: accessToken });
-  if (refreshToken) params.set('refreshToken', refreshToken);
+      if (authServiceUrl) {
+        try {
+          const authRes = await fetch(`${authServiceUrl}/auth/spid-login`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fiscalNumber: user.fiscalNumber || null,
+              spidCode:     user.spidCode     || user.nameID || null,
+              name:         user.name         || null,
+              familyName:   user.familyName   || null,
+              email:        user.email        || null,
+            }),
+          });
 
-  return res.redirect(`${returnTo}?${params}`);
-})(req, res, next);
+          if (!authRes.ok) {
+            const body = await authRes.json().catch(() => ({}));
+            console.error('[acs] auth-service error:', body);
+            return res.redirect(
+              `${base}/?error=auth_service&reason=${encodeURIComponent(body.error || authRes.status)}`
+            );
+          }
+
+          const tokens     = await authRes.json();
+          accessToken      = tokens.accessToken;
+          refreshToken     = tokens.refreshToken     || null;
+          mustChangePassword = tokens.mustChangePassword === true;
+
+        } catch (fetchErr) {
+          console.error('[acs] fetch auth-service fallito:', fetchErr.message);
+          // Fallback JWT locale se backoffice non raggiungibile
+          accessToken = _makeLocalJwt(user);
+        }
+      } else {
+        // AUTH_SERVICE_URL non configurata: JWT locale (sviluppo)
+        console.warn('[acs] AUTH_SERVICE_URL non impostata — JWT locale');
+        accessToken = _makeLocalJwt(user);
+      }
+
+      // ── 4. Redirect al frontend ───────────────────────────────
+      // FIX 1: destinazione corretta → /auth/callback  (non la root)
+      // FIX 2: parametri nel fragment hash #  (SpidCallbackView usa window.location.hash)
+      // FIX 3: nome parametro accessToken   (non "token")
+      // I token nel fragment non finiscono nei log del server né nei referrer HTTP.
+      const fragment = new URLSearchParams({
+        accessToken,
+        ...(refreshToken       ? { refreshToken }                          : {}),
+        ...(mustChangePassword ? { mustChangePassword: '1' }               : {}),
+      }).toString();
+
+      return res.redirect(`${base}/auth/callback#${fragment}`);
+
+    })(req, res, next);
   }
 );
+
 
 // ── Logout ────────────────────────────────────────────────────
 app.get('/spid/logout', (req, res) => {

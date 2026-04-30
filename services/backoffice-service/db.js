@@ -23,7 +23,7 @@ await db.executeMultiple(`
     updated_at           TEXT NOT NULL DEFAULT (datetime('now')),
     must_change_password INTEGER NOT NULL DEFAULT 0,
     last_login           TEXT,
-    fiscal_number        TEXT UNIQUE DEFAULT NULL,
+    fiscal_number        TEXT DEFAULT NULL,
     spid_name            TEXT DEFAULT NULL,
     spid_family_name     TEXT DEFAULT NULL
   );
@@ -57,13 +57,13 @@ await db.executeMultiple(`
 `);
 
 // ── Migrations idempotenti per DB pre-esistenti ───────────
-// Ogni ALTER TABLE è in un try/catch separato:
-// se la colonna esiste già SQLite lancia un errore ignorato.
+// NOTA: SQLite non ammette UNIQUE né PRIMARY KEY in ALTER TABLE ADD COLUMN.
+// L'unicità su fiscal_number è garantita dall'indice UNIQUE sotto.
 const migrations = [
-  [`must_change_password`, `ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`],
-  [`fiscal_number`,        `ALTER TABLE users ADD COLUMN fiscal_number    TEXT UNIQUE DEFAULT NULL`],
-  [`spid_name`,            `ALTER TABLE users ADD COLUMN spid_name        TEXT DEFAULT NULL`],
-  [`spid_family_name`,     `ALTER TABLE users ADD COLUMN spid_family_name TEXT DEFAULT NULL`],
+  ['must_change_password', `ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`],
+  ['fiscal_number',        `ALTER TABLE users ADD COLUMN fiscal_number    TEXT DEFAULT NULL`],
+  ['spid_name',            `ALTER TABLE users ADD COLUMN spid_name        TEXT DEFAULT NULL`],
+  ['spid_family_name',     `ALTER TABLE users ADD COLUMN spid_family_name TEXT DEFAULT NULL`],
 ];
 
 for (const [col, sql] of migrations) {
@@ -75,9 +75,15 @@ for (const [col, sql] of migrations) {
   }
 }
 
-try {
-  await db.execute(`CREATE INDEX IF NOT EXISTS idx_users_fiscal ON users(fiscal_number)`);
-} catch { /* già esiste */ }
+// Indice UNIQUE separato (unico modo valido in SQLite per ALTER TABLE)
+for (const sql of [
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_fiscal ON users(fiscal_number) WHERE fiscal_number IS NOT NULL`,
+]) {
+  try {
+    await db.execute(sql);
+    console.log('🔄 Migration: indice idx_users_fiscal creato');
+  } catch { /* già esiste */ }
+}
 
 // ── Seed admin ────────────────────────────────────────────
 const { rows } = await db.execute(`SELECT id FROM users WHERE username = 'admin'`);

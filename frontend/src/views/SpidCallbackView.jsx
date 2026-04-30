@@ -1,34 +1,34 @@
 // frontend/src/views/SpidCallbackView.jsx
 //
-// Riceve il redirect dal backoffice dopo /auth/spid-login.
-// Il backoffice fa:
-//   res.redirect(`${FRONTEND_URL}/auth/callback#accessToken=...&refreshToken=...&mustChangePassword=0`)
-//
-// Usiamo il fragment (#) invece di query string: i token non
-// appaiono nei log del server né nei referrer header.
+// Riceve il redirect dallo spid-service dopo l'ACS SAML.
+// Il fragment (#) evita che i token appaiano nei log del server
+// o negli header Referer.
 
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { notify } from '../services/notificationService';
 
 export default function SpidCallbackView({ onLogin }) {
+  const navigate = useNavigate();
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.slice(1));
 
     const accessToken        = params.get('accessToken');
-    const refreshToken       = params.get('refreshToken')  || null;
+    const refreshToken       = params.get('refreshToken') || null;
     const mustChangePassword = params.get('mustChangePassword') === '1' ||
                                params.get('mustChangePassword') === 'true';
 
-    // Pulisce il fragment dall'URL (non lasciare token visibili nella barra)
+    // Rimuove i token dalla barra dell'URL prima di qualsiasi navigazione
     window.history.replaceState(null, '', window.location.pathname);
 
     if (accessToken) {
       onLogin(accessToken, refreshToken, mustChangePassword);
       if (!mustChangePassword) notify.success('Accesso SPID effettuato!');
+      navigate('/', { replace: true });
     } else {
-      // Nessun token → errore generico, torna al login con codice
       notify.error('Accesso SPID non completato.');
-      window.location.href = '/?error=spid_callback';
+      navigate('/?error=spid_callback', { replace: true });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

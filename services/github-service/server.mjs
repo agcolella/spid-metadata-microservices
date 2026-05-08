@@ -5,7 +5,7 @@ import { GitHubService } from './GitHubService.js';
 
 const PORT = process.env.GITHUB_SERVICE_PORT || 4003;
 const app  = express();
-app.use(cors());
+app.use(cors({ origin: ['http://localhost:8080','http://localhost:3000','https://spid-metadata-microservices.vercel.app'], credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 
 function getService(res) {

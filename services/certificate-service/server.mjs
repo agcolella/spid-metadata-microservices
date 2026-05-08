@@ -7,7 +7,7 @@ const PORT          = process.env.CERTIFICATE_SERVICE_PORT || 4007;
 const REGISTRY_BASE = process.env.SPID_REGISTRY_BASE || 'https://registry.spid.gov.it/entities-sp';
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: ['http://localhost:8080','http://localhost:3000','https://spid-metadata-microservices.vercel.app'], credentials: true }));
 app.use(express.json({ limit: '5mb' }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

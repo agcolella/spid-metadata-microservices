@@ -12,7 +12,7 @@ const STRICT_MODE  = process.env.VALIDATION_STRICT_MODE  === 'true';
 const BRANCH_PREFIX= process.env.BRANCH_PREFIX           || 'spid-batch-';
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: ['http://localhost:8080','http://localhost:3000','https://spid-metadata-microservices.vercel.app'], credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 
 // ── Helpers ───────────────────────────────────────────────

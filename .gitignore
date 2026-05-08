@@ -37,3 +37,13 @@ services/backoffice-service/*.db-shm
 services/backoffice-service/*.db-wal
 services/backoffice-service/*.db
 frontend/build/
+
+# Dipendenze Node
+node_modules/
+**/node_modules/
+
+# File temporanei editor
+*.save
+*.swp
+*.swo
+*.bak

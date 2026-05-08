@@ -55,7 +55,7 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-app.use(cors());
+app.use(cors({ origin: ['http://localhost:8080','http://localhost:3000','https://spid-metadata-microservices.vercel.app'], credentials: true }));
 app.use(express.json());
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

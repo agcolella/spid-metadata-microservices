@@ -1,3 +1,4 @@
+import axios from 'axios';
 import express      from 'express';
 import cors         from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
@@ -47,7 +48,6 @@ app.post(
     try {
       if (!req.file) return res.status(400).json({ error: 'Nessun file ricevuto' });
 
-      const axios    = (await import('axios')).default;
       const FormData = (await import('form-data')).default;
 
       const form = new FormData();
@@ -106,7 +106,6 @@ async function authMiddleware(req, res, next) {
   const requiredRole = matchedRoute ? ROUTE_ROLES[matchedRoute] : 'viewer';
 
   try {
-    const axios = (await import('axios')).default;
     const { data } = await axios.post(
       `${BACKOFFICE_SVC}/authorize`,
       { token, requiredRole },
@@ -130,7 +129,6 @@ async function authMiddleware(req, res, next) {
 // ── SPID routes — PUBBLICHE, prima di authMiddleware ─────────
 // Il flusso SAML richiede redirect e POST non autenticati
 app.use('/spid', async (req, res) => {
-  const axios   = (await import('axios')).default;
   const subPath = req.originalUrl || '/';
   const targetUrl = SPID_SVC + subPath;
 
@@ -167,7 +165,6 @@ app.use(authMiddleware);
 
 async function makeProxy(targetBase, stripPrefix, targetPrefix = '') {
   return async function(req, res) {
-    const axios = (await import('axios')).default;
     const subPath = req.originalUrl.slice(stripPrefix.length) || '/';
     const targetUrl = targetBase + targetPrefix + subPath;
 
@@ -224,7 +221,6 @@ app.get('/health', async (req, res) => {
     'backoffice-service':  `${BACKOFFICE_SVC}/health`
   };
 
-  const axios = (await import('axios')).default;
   const statuses = await Promise.allSettled(
     Object.entries(services).map(async ([name, url]) => {
       const { data } = await axios.get(url, { timeout: 2000 });

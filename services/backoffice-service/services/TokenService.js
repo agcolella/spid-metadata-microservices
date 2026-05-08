@@ -4,10 +4,18 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
 
-const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET  || 'change-me-access-secret';
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'change-me-refresh-secret';
-const ACCESS_EXP     = process.env.JWT_ACCESS_EXP     || '8h';
-const REFRESH_EXP    = process.env.JWT_REFRESH_EXP    || '7d';
+const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+const ACCESS_EXP     = process.env.JWT_ACCESS_EXP  || '8h';
+const REFRESH_EXP    = process.env.JWT_REFRESH_EXP || '7d';
+
+if (!ACCESS_SECRET) {
+  throw new Error('JWT_ACCESS_SECRET è obbligatorio');
+}
+
+if (!REFRESH_SECRET) {
+  throw new Error('JWT_REFRESH_SECRET è obbligatorio');
+}
 
 export class TokenService {
 
@@ -23,7 +31,7 @@ export class TokenService {
     const raw    = uuidv4();
     const hash   = bcrypt.hashSync(raw, 10);
     const expMs  = REFRESH_EXP.endsWith('d')
-      ? parseInt(REFRESH_EXP) * 86400000
+      ? parseInt(REFRESH_EXP, 10) * 86400000
       : 604800000;
     const expiresAt = new Date(Date.now() + expMs).toISOString();
 
@@ -46,7 +54,7 @@ export class TokenService {
     });
 
     for (const row of rows) {
-      if (bcrypt.compareSync(rawToken, row.token_hash)) return row;
+      if (await bcrypt.compare(rawToken, row.token_hash)) return row;
     }
     return null;
   }

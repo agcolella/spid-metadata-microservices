@@ -13,32 +13,31 @@ app.get('/health', (_, res) =>
   res.json({ service: 'validation-service', status: 'ok', port: PORT, production: PRODUCTION })
 );
 
-// Nel validation-service/server.mjs
 app.post('/validate', async (req, res) => {
   try {
     const { content, filename, profile } = req.body;
     const validator = new SpidMetadataValidator({ production: PRODUCTION });
-    const result    = await validator.validate(content, profile);  // ← await
+    const result    = await validator.validate(content, profile);
     res.json({ filename, ...result });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.post('/validate-batch', (req, res) => {
+app.post('/validate-batch', async (req, res) => {
   try {
     const { files } = req.body;
     if (!Array.isArray(files)) return res.status(400).json({ error: 'files deve essere un array' });
 
-    const results = files.map(({ filename, content, profile = 'spid_sp_public' }) => {
+    const results = await Promise.all(files.map(async ({ filename, content, profile = 'spid_sp_public' }) => {
       try {
         const validator = new SpidMetadataValidator({ production: PRODUCTION });
-        const validation = validator.validate(content, profile);
+        const validation = await validator.validate(content, profile);
         return { filename, validation, success: true };
       } catch (e) {
         return { filename, error: e.message, success: false };
       }
-    });
+    }));
 
     res.json(results);
   } catch (e) {

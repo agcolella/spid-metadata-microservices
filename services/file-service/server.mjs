@@ -2,10 +2,16 @@ import express          from 'express';
 import cors             from 'cors';
 import multer           from 'multer';
 import http             from 'http';
+import jwt              from 'jsonwebtoken';
 import { createClient } from '@libsql/client';
 
 
 const PORT = process.env.FILE_SERVICE_PORT || 4001;
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
+
+if (!JWT_ACCESS_SECRET) {
+  throw new Error('JWT_ACCESS_SECRET è obbligatorio');
+}
 
 // ─── DB Init ──────────────────────────────────────────────────────────────────
 let db;
@@ -67,7 +73,6 @@ function parseXmlMeta(content) {
 // ─── Middleware Auth ──────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
   console.log("[AUTH]", { userId: req.headers["x-user-id"], hasAuth: !!req.headers.authorization, path: req.path });
-  // Caso 1: header iniettati dal Gateway (tutte le route tranne upload)
   const userId   = req.headers['x-user-id'];
   const username = req.headers['x-username'];
   const role     = req.headers['x-user-role'];
@@ -77,30 +82,32 @@ function requireAuth(req, res, next) {
     return next();
   }
 
-  // Caso 2: upload diretto con JWT (bypassa authMiddleware del Gateway)
   const auth = req.headers.authorization;
-  if (!auth?.startsWith('Bearer '))
+  if (!auth?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Non autorizzato' });
+  }
+
+  const token = auth.slice('Bearer '.length);
 
   try {
-    const payload = JSON.parse(
-      Buffer.from(auth.split('.')[1], 'base64').toString()
-    );
-    if (payload.exp && Date.now() / 1000 > payload.exp)
-      return res.status(401).json({ error: 'Token scaduto' });
+    const payload = jwt.verify(token, JWT_ACCESS_SECRET);
 
     req.user = {
-      id:       payload.sub ?? payload.id,   // sub è lo standard JWT
+      id:       payload.sub ?? payload.id,
       username: payload.username,
       role:     payload.role,
     };
 
-    if (!req.user.id)
+    if (!req.user.id) {
       return res.status(401).json({ error: 'Token non contiene user id' });
+    }
 
     next();
-  } catch {
-    res.status(401).json({ error: 'Token non valido' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token scaduto' });
+    }
+    return res.status(401).json({ error: 'Token non valido' });
   }
 }
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -162,7 +169,6 @@ app.post('/upload', requireAuth, upload.single('xmlFile'), async (req, res) => {
       ],
     });
 
-    // Recupera i timestamp reali dal DB
     const row = await db.execute({
       sql:  'SELECT created_at AS creationDate, updated_at AS modificationDate FROM xml_files WHERE filename = ? AND uploaded_by = ?',
       args: [filename, req.user.id],
@@ -181,7 +187,6 @@ app.post('/upload', requireAuth, upload.single('xmlFile'), async (req, res) => {
   }
 });
 
-// Contenuto XML per il viewer (risposta identica alla versione filesystem)
 app.get('/files/:filename/content', requireAuth, async (req, res) => {
   try {
     const result = await db.execute({
@@ -196,7 +201,6 @@ app.get('/files/:filename/content', requireAuth, async (req, res) => {
   }
 });
 
-// Validazione — proxy verso validation-service
 app.get('/files/:filename/validate', requireAuth, async (req, res) => {
   try {
     const result = await db.execute({
@@ -226,7 +230,6 @@ app.get('/files/:filename/validate', requireAuth, async (req, res) => {
   }
 });
 
-// Batch contenuti XML
 app.post('/get-xml-contents', requireAuth, async (req, res) => {
   const { filenames } = req.body;
   if (!Array.isArray(filenames))
@@ -239,7 +242,6 @@ app.post('/get-xml-contents', requireAuth, async (req, res) => {
              WHERE filename IN (${placeholders}) AND uploaded_by = ?`,
       args: [...filenames, req.user.id],
     });
-    // Mantieni l'ordine richiesto e segnala i file non trovati
     const map = Object.fromEntries(result.rows.map(r => [r.filename, r.content]));
     const results = filenames.map(filename => ({
       filename,
@@ -253,7 +255,6 @@ app.post('/get-xml-contents', requireAuth, async (req, res) => {
   }
 });
 
-// Eliminazione batch
 app.post('/delete-xml-files', requireAuth, async (req, res) => {
   const { filenames } = req.body;
   if (!Array.isArray(filenames))
@@ -276,14 +277,12 @@ app.post('/delete-xml-files', requireAuth, async (req, res) => {
   }
 });
 
-// ─── Error handler ────────────────────────────────────────────────────────────
 app.use((err, _, res, __) => {
   if (err.code === 'LIMIT_FILE_SIZE')
     return res.status(400).json({ error: 'File troppo grande (max 5MB)' });
   res.status(500).json({ error: err.message });
 });
 
-// ─── Avvio ────────────────────────────────────────────────────────────────────
 initDB().then(() => {
   app.listen(PORT, () =>
     console.log(`📁 file-service → http://localhost:${PORT}`)

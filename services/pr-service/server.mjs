@@ -2,6 +2,7 @@
 import express from 'express';
 import cors    from 'cors';
 import axios   from 'axios';
+import jwt from 'jsonwebtoken';
 
 const PORT         = process.env.PR_SERVICE_PORT         || 4004;
 const FILE_SVC     = process.env.FILE_SERVICE_URL        || 'http://localhost:4001';
@@ -10,12 +11,24 @@ const GITHUB_SVC   = process.env.GITHUB_SERVICE_URL      || 'http://localhost:40
 const BASE_BRANCH  = process.env.BASE_BRANCH             || 'main';
 const STRICT_MODE  = process.env.VALIDATION_STRICT_MODE  === 'true';
 const BRANCH_PREFIX= process.env.BRANCH_PREFIX           || 'spid-batch-';
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
+if (!JWT_ACCESS_SECRET) throw new Error('JWT_ACCESS_SECRET è obbligatorio');
+
 
 const app = express();
 app.use(cors({ origin: ['http://localhost:8080','http://localhost:3000','https://spid-metadata-microservices.vercel.app'], credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 
 // ── Helpers ───────────────────────────────────────────────
+// Funzione per generare un token di servizio interno
+function makeServiceToken() {
+  return jwt.sign(
+    { sub: 'pr-service', role: 'service', internal: true },
+    JWT_ACCESS_SECRET,
+    { expiresIn: '5m' }
+  );
+}
+
 function generateBranchName() {
   const random = Math.random().toString(36).substring(2, 8);
   return `${BRANCH_PREFIX}${Date.now()}-${random}`;
@@ -54,7 +67,7 @@ async function getFileContents(filenames, token) {
   const { data } = await axios.post(
     `${FILE_SVC}/get-xml-contents`,
     { filenames },
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${makeServiceToken()}` } }
   );
   return data;
 }

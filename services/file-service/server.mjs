@@ -232,6 +232,10 @@ app.get('/files/:filename/validate', requireAuth, async (req, res) => {
 
 
 app.post('/get-xml-contents', requireAuth, async (req, res) => {
+    console.log('🔍 get-xml-contents called:', {
+    user: req.user,
+    body: req.body
+  });
   const { filenames, userId } = req.body;
 
   if (!Array.isArray(filenames))

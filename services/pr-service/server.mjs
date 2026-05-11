@@ -62,7 +62,7 @@ function generateBody(filesData, organizations, validationResults) {
   return body;
 }
 
-// 1. Aggiorna le funzioni per accettare il token
+// 
 async function getFileContents(filenames, token) {
   // Decodifica il token utente per estrarre l'ID reale
   const decoded = jwt.decode(token);

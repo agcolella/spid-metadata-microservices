@@ -153,7 +153,7 @@ const spidStrategy = new SpidStrategy(
   {
     saml: {
       callbackUrl:                    process.env.SP_ACS_URL,
-      logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/spid/logout`,
+      logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/logout`,
       signatureAlgorithm:             'sha256',
       privateKey:                     SP_KEY,
       attributeConsumingServiceIndex: '0',

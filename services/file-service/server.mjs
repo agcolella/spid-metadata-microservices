@@ -231,16 +231,24 @@ app.get('/files/:filename/validate', requireAuth, async (req, res) => {
 });
 
 app.post('/get-xml-contents', requireAuth, async (req, res) => {
-  const { filenames } = req.body;
+  const { filenames, userId } = req.body;
+
   if (!Array.isArray(filenames))
     return res.status(400).json({ error: 'filenames deve essere un array' });
+
+  // Se il chiamante è un service token interno, usa userId dal body
+  // Altrimenti usa l'ID dell'utente autenticato normalmente
+  const ownerId = req.user.internal ? userId : req.user.id;
+
+  if (!ownerId)
+    return res.status(400).json({ error: 'userId mancante' });
 
   try {
     const placeholders = filenames.map(() => '?').join(',');
     const result = await db.execute({
       sql:  `SELECT filename, content FROM xml_files
              WHERE filename IN (${placeholders}) AND uploaded_by = ?`,
-      args: [...filenames, req.user.id],
+      args: [...filenames, ownerId],
     });
     const map = Object.fromEntries(result.rows.map(r => [r.filename, r.content]));
     const results = filenames.map(filename => ({

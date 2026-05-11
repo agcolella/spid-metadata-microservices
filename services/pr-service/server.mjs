@@ -64,9 +64,11 @@ function generateBody(filesData, organizations, validationResults) {
 
 // 1. Aggiorna le funzioni per accettare il token
 async function getFileContents(filenames, token) {
+  // Decodifica il token utente per estrarre l'ID reale
+  const decoded = jwt.decode(token);
   const { data } = await axios.post(
     `${FILE_SVC}/get-xml-contents`,
-    { filenames },
+    { filenames, userId: decoded.sub ?? decoded.id },   // ← passa userId
     { headers: { Authorization: `Bearer ${makeServiceToken()}` } }
   );
   return data;

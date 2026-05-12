@@ -111,6 +111,7 @@ app.post('/preview', async (req, res) => {
 
     // 2. Valida batch
     const validations = await validateFiles(validFiles, token);
+    console.log('VALIDATIONS RESULT:', JSON.stringify(validations, null, 2));
 
     // 3. Aggrega dati
     const filesData   = [];

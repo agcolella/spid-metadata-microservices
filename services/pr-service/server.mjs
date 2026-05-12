@@ -116,14 +116,15 @@ app.post('/preview', async (req, res) => {
     const { files } = req.body;
     if (!Array.isArray(files) || !files.length)
       return res.status(400).json({ error: 'files obbligatorio e non vuoto' });
-    const token = req.headers.authorization?.split(' ')[1]; // ← aggiunta
+
+    const token = req.headers.authorization?.split(' ')[1];
+
     // 1. Leggi contenuti da file-service
     const contents = await getFileContents(files, token);
     const validFiles = contents.filter(f => f.success);
 
     // 2. Valida batch
     const validations = await validateFiles(validFiles, token);
-    console.log('VALIDATIONS RESULT:', JSON.stringify(validations, null, 2));
 
     // 3. Aggrega dati
     const filesData   = [];
@@ -134,24 +135,49 @@ app.post('/preview', async (req, res) => {
     validations.forEach(v => {
       const { filename, validation } = v;
       const content = validFiles.find(f => f.filename === filename)?.content;
-        // Prova prima dal risultato della validazione, poi fallback all'XML
-      const orgName = validation?.organizationName 
-        || extractOrgNameFromXML(content);
+
+      // ✅ FIX 1: normalizza tutti i possibili campi dove può arrivare l'org name
+      const orgName =
+        validation?.organizationName          ||
+        validation?.organization_name         ||
+        validation?.OrganizationName          ||
+        validation?.organizationDisplayName   ||
+        validation?.spOrganizationName        ||
+        extractOrgNameFromXML(content)        ||
+        null;
+
       filesData.push({
         filename,
         content,
-        entityID:         validation?.entityID         || null,
-        organizationName: orgName                      || null
+        entityID:         validation?.entityID || null,
+        organizationName: orgName
       });
+
       if (orgName) organizations.add(orgName);
-      if (validation?.organizationName) organizations.add(validation.organizationName);
+
       (validation?.errors   || []).forEach(e => allErrors.push(`${filename}: ${e.message || e}`));
       (validation?.warnings || []).forEach(w => allWarnings.push(`${filename}: ${w.message || w}`));
     });
 
     // 4. Controlla duplicati
     const duplicates = await checkDuplicates(filesData, token);
-    const orgList    = Array.from(organizations);
+
+    // ✅ FIX 2: se organizations è ancora vuoto, tenta fallback diretto sull'XML dei file
+    if (organizations.size === 0) {
+      for (const f of validFiles) {
+        const orgFromXml = extractOrgNameFromXML(f.content);
+        if (orgFromXml) organizations.add(orgFromXml);
+      }
+    }
+
+    const orgList = Array.from(organizations);
+
+    // ✅ FIX 3: log diagnostico (rimuovi in produzione)
+    console.log('[preview] organizations trovate:', orgList);
+    console.log('[preview] filesData org sample:', filesData.map(f => ({
+      filename: f.filename,
+      organizationName: f.organizationName
+    })));
 
     res.json({
       title:        generateTitle(files.length, orgList),
@@ -160,12 +186,12 @@ app.post('/preview', async (req, res) => {
       organizations: orgList,
       validation:   { errors: allErrors, warnings: allWarnings, duplicates }
     });
-    } catch (e) {
-      console.error('Errore preview PR:', e.message, e.stack, JSON.stringify(e));
-      res.status(500).json({ error: e.message || JSON.stringify(e) });
-    }
-});
 
+  } catch (e) {
+    console.error('Errore preview PR:', e.message, e.stack, JSON.stringify(e));
+    res.status(500).json({ error: e.message || JSON.stringify(e) });
+  }
+});
 // ── POST /create ──────────────────────────────────────────
 // Body: { files: string[], draft?: boolean }
 app.post('/create', async (req, res) => {

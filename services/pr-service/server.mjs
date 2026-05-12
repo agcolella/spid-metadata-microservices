@@ -83,6 +83,18 @@ async function validateFiles(filesData, token) {
   return data;
 }
 
+// Dopo validateFiles, aggiungi questo helper
+function extractOrgNameFromXML(xmlContent) {
+  if (!xmlContent) return null;
+  // Cerca OrganizationDisplayName o OrganizationName nell'XML
+  const match = xmlContent.match(
+    /<(?:[^:]+:)?OrganizationDisplayName[^>]*>([^<]+)<\/(?:[^:]+:)?OrganizationDisplayName>/
+  ) || xmlContent.match(
+    /<(?:[^:]+:)?OrganizationName[^>]*>([^<]+)<\/(?:[^:]+:)?OrganizationName>/
+  );
+  return match ? match[1].trim() : null;
+}
+
 async function checkDuplicates(filesData, token) {
   const { data } = await axios.post(
     `${VALID_SVC}/check-duplicates`,
@@ -122,13 +134,16 @@ app.post('/preview', async (req, res) => {
     validations.forEach(v => {
       const { filename, validation } = v;
       const content = validFiles.find(f => f.filename === filename)?.content;
+        // Prova prima dal risultato della validazione, poi fallback all'XML
+      const orgName = validation?.organizationName 
+        || extractOrgNameFromXML(content);
       filesData.push({
         filename,
         content,
         entityID:         validation?.entityID         || null,
-        organizationName: validation?.organizationName || null
+        organizationName: orgName                      || null
       });
-
+      if (orgName) organizations.add(orgName);
       if (validation?.organizationName) organizations.add(validation.organizationName);
       (validation?.errors   || []).forEach(e => allErrors.push(`${filename}: ${e.message || e}`));
       (validation?.warnings || []).forEach(w => allWarnings.push(`${filename}: ${w.message || w}`));

@@ -290,6 +290,8 @@ export default function MainView() {
       notify.warning(`${selectedFiles.length - validFiles.length} file con errori esclusi dalla PR`);
     try {
       const res = await axios.post(API.previewPR, { files: validFiles }, getAuthHeaders());
+      console.log('🔍 Risposta completa di previewPR:', res.data);
+      console.log('🏢 organizations nel preview:', res.data.organizations);
       setPrPreview(res.data);
       setValidFilesForPR(validFiles);
     } catch (err) { notify.error('Errore anteprima PR: ' + (err.response?.data?.error || err.message)); }

@@ -322,35 +322,44 @@ export default function MainView() {
     } catch (err) { notify.error('Errore anteprima PR: ' + (err.response?.data?.error || err.message)); }
   };
 
-  const confirmCreatePR = async () => {
-    setPrInProgress(true); setPrStep(0);
-    try {
-      const res = await axios.post(
-        API.createPR,
-        { files: validFilesForPR, organizations: prPreview.organizations, draft: false },
-        getAuthHeaders()
-      );
-      if (res.data.success) {
-        notify.success('PR creata con successo!');
-        const newPR = {
-          id:            Date.now(),
-          number:        res.data.number,
-          url:           res.data.url,
-          branch:        res.data.branch,
-          organizations: prPreview.organizations,
-          fileCount:     validFilesForPR.length,
-          createdAt:     new Date().toISOString(),
-          status:        'open',
-        };
-        const updated = [newPR, ...pullRequests];
-        setPullRequests(updated);
-        localStorage.setItem(LS_KEY, JSON.stringify(updated));
-        setSelectedFiles([]); setValidFilesForPR([]); setPrPreview(null);
-        await loadFiles();
-      }
-    } catch (err) { notify.error('Errore creazione PR: ' + (err.response?.data?.error || err.message)); }
-    finally { setPrInProgress(false); setPrStep(0); }
-  };
+const confirmCreatePR = async () => {
+  setPrInProgress(true); setPrStep(0);
+  try {
+    // Fallback sicuro: se prPreview.organizations è vuoto, ricalcola
+    const organizations = prPreview.organizations?.length > 0
+      ? prPreview.organizations
+      : [...new Set(
+          validFilesForPR
+            .map(fn => files.find(f => f.filename === fn)?.organizationName)
+            .filter(Boolean)
+        )];
+
+    const res = await axios.post(
+      API.createPR,
+      { files: validFilesForPR, organizations, draft: false },
+      getAuthHeaders()
+    );
+    if (res.data.success) {
+      notify.success('PR creata con successo!');
+      const newPR = {
+        id:            Date.now(),
+        number:        res.data.number,
+        url:           res.data.url,
+        branch:        res.data.branch,
+        organizations,           // ← usa la stessa variabile locale
+        fileCount:     validFilesForPR.length,
+        createdAt:     new Date().toISOString(),
+        status:        'open',
+      };
+      const updated = [newPR, ...pullRequests];
+      setPullRequests(updated);
+      localStorage.setItem(LS_KEY, JSON.stringify(updated));
+      setSelectedFiles([]); setValidFilesForPR([]); setPrPreview(null);
+      await loadFiles();
+    }
+  } catch (err) { notify.error('Errore creazione PR: ' + (err.response?.data?.error || err.message)); }
+  finally { setPrInProgress(false); setPrStep(0); }
+};
 
   // ── tabella ────────────────────────────────────────────────
   const toggleRowExpansion = async (filename) => {

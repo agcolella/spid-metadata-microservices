@@ -290,9 +290,18 @@ export default function MainView() {
       notify.warning(`${selectedFiles.length - validFiles.length} file con errori esclusi dalla PR`);
     try {
       const res = await axios.post(API.previewPR, { files: validFiles }, getAuthHeaders());
+      // Ricava le organizzazioni dai file già caricati in stato
+      const organizations = [
+        ...new Set(
+          validFiles
+            .map(fn => files.find(f => f.filename === fn)?.organizationName)
+            .filter(Boolean)
+        )
+      ];
       console.log('🔍 Risposta completa di previewPR:', res.data);
       console.log('🏢 organizations nel preview:', res.data.organizations);
-      setPrPreview(res.data);
+      //setPrPreview(res.data);
+      setPrPreview({ ...res.data, organizations });  // ← override con dati corretti
       setValidFilesForPR(validFiles);
     } catch (err) { notify.error('Errore anteprima PR: ' + (err.response?.data?.error || err.message)); }
   };

@@ -291,6 +291,17 @@ export default function MainView() {
     try {
       const res = await axios.post(API.previewPR, { files: validFiles }, getAuthHeaders());
       // Ricava le organizzazioni dai file già caricati in stato
+      // DEBUG TEMPORANEO
+      console.log('📂 validFiles:', validFiles);
+      console.log('📋 files state (prime 3):', files.slice(0, 3));
+      validFiles.forEach(fn => {
+        const f = files.find(x => x.filename === fn);
+        console.log(`📄 ${fn}:`, {
+          organizationName: f?.organizationName,
+          allKeys: f ? Object.keys(f) : 'NOT FOUND'
+        });
+      });
+      
       const organizations = [
         ...new Set(
           validFiles

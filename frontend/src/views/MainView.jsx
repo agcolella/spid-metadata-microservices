@@ -292,20 +292,25 @@ export default function MainView() {
       const res = await axios.post(API.previewPR, { files: validFiles }, getAuthHeaders());
       // Ricava le organizzazioni dai file già caricati in stato
       // DEBUG TEMPORANEO
-      console.log('📂 validFiles:', validFiles);
-      console.log('📋 files state (prime 3):', files.slice(0, 3));
-      validFiles.forEach(fn => {
-        const f = files.find(x => x.filename === fn);
-        console.log(`📄 ${fn}:`, {
-          organizationName: f?.organizationName,
-          allKeys: f ? Object.keys(f) : 'NOT FOUND'
-        });
-      });
-      
+      const fn = validFiles[0];
+      const found = files.find(x => x.filename === fn);
+      console.log('MATCH TEST:', {
+        fn,
+        fn_length: fn.length,
+        fn_codes: [...fn].map(c => c.charCodeAt(0)),
+        found_filename: found?.filename,
+        found_codes: found ? [...found.filename].map(c => c.charCodeAt(0)) : null,
+        match: found?.organizationName
+      });      
       const organizations = [
         ...new Set(
           validFiles
-            .map(fn => files.find(f => f.filename === fn)?.organizationName)
+            .map(fn => {
+              const fnNorm = fn.trim().toLowerCase();
+              const f = files.find(x => x.filename.trim().toLowerCase() === fnNorm);
+              console.log(`🔎 ${fn} → found:`, f?.filename, '| org:', f?.organizationName);
+              return f?.organizationName || null;
+            })
             .filter(Boolean)
         )
       ];

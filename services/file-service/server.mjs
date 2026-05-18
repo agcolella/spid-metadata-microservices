@@ -243,7 +243,14 @@ app.post('/get-xml-contents', requireAuth, async (req, res) => {
 
   // Se il chiamante è un service token interno, usa userId dal body
   // Altrimenti usa l'ID dell'utente autenticato normalmente
-  const ownerId = req.user.internal ? userId : req.user.id;
+  
+  const isServiceCall = req.user.role === 'service' || req.user.id === 'pr-service';
+  const ownerId = isServiceCall ? userId : req.user.id;
+
+if (!ownerId) {
+  return res.status(400).json({ error: 'userId mancante' });
+}
+
   console.log('🔍 ownerId usato:', ownerId);
   console.log('🔍 filenames cercati:', filenames);
   // Verifica cosa c'è nel DB per questi file:

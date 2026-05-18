@@ -66,6 +66,7 @@ function generateBody(filesData, organizations, validationResults) {
 async function getFileContents(filenames, token) {
   // Decodifica il token utente per estrarre l'ID reale
   const decoded = jwt.decode(token);
+  console.log('🔍 decoded token fields:', JSON.stringify(decoded));
   const { data } = await axios.post(
     `${FILE_SVC}/get-xml-contents`,
     { filenames, userId: decoded.sub ?? decoded.id },   // ← passa userId

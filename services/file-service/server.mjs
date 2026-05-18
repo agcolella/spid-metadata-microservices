@@ -244,7 +244,15 @@ app.post('/get-xml-contents', requireAuth, async (req, res) => {
   // Se il chiamante è un service token interno, usa userId dal body
   // Altrimenti usa l'ID dell'utente autenticato normalmente
   const ownerId = req.user.internal ? userId : req.user.id;
-
+  console.log('🔍 ownerId usato:', ownerId);
+  console.log('🔍 filenames cercati:', filenames);
+  // Verifica cosa c'è nel DB per questi file:
+  const checkResult = await db.execute({
+    sql: `SELECT filename, uploaded_by FROM xml_files WHERE filename IN (${filenames.map(() => '?').join(',')})`,
+    args: [...filenames],
+  });
+  console.log('🔍 file nel DB (senza filtro userId):', checkResult.rows);  
+  
   if (!ownerId)
     return res.status(400).json({ error: 'userId mancante' });
 

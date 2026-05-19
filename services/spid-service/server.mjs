@@ -160,7 +160,7 @@ const spidStrategy = new SpidStrategy(
       callbackUrl:                    process.env.SP_ACS_URL,
       logoutCallbackUrl:              `${process.env.SP_ENTITY_ID}/logout`,
       signatureAlgorithm:             'sha256',
-      privateKey:                     SP_KEY,
+      privateKey:                     spKey,
       attributeConsumingServiceIndex: '0',
       authnRequestBinding:            'HTTP-Redirect',
     },
@@ -177,8 +177,8 @@ const spidStrategy = new SpidStrategy(
       serviceProvider: {
         type:        'public',
         entityId:    process.env.SP_ENTITY_ID,
-        certificate: SP_CERT,
-        privateKey:  SP_KEY,
+        certificate: spCert,
+        privateKey:  spKey,
         acs: [
           {
             name:       'Servizio Demo SPID',

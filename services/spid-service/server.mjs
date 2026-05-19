@@ -16,9 +16,14 @@ const app       = express();
 const PORT      = process.env.PORT || 4008;
 
 // ── Certificati SP ────────────────────────────────────────────
-const SP_KEY  = fs.readFileSync(path.resolve(__dirname, process.env.SP_KEY_PATH),  'utf8');
-const SP_CERT = fs.readFileSync(path.resolve(__dirname, process.env.SP_CERT_PATH), 'utf8');
+const spKey  = process.env.SPID_SP_KEY
+  ? Buffer.from(process.env.SPID_SP_KEY, 'base64').toString('utf8')
+  : fs.readFileSync('./certs/sp-key.pem', 'utf8'); // fallback locale
 
+const spCert = process.env.SPID_SP_CERT
+  ? Buffer.from(process.env.SPID_SP_CERT, 'base64').toString('utf8')
+  : fs.readFileSync('./certs/sp-cert.pem', 'utf8');
+  
 // ── extractEntities ───────────────────────────────────────────
 // function declaration: viene hoistata, nessun ReferenceError.
 // Estrae solo EntityDescriptor con X509Certificate.

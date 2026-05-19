@@ -14,7 +14,7 @@ const auditService = new AuditService();
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
-  'https://spid-metadata-app.vercel.app'
+  ...( process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [] )
 ];
 
 const app = express();

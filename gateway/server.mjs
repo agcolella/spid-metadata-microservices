@@ -17,7 +17,7 @@ const SPID_SVC = process.env.SPID_SERVICE_URL || 'http://localhost:4008';
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
-  'https://spid-metadata-microservices.vercel.app'
+  ...( process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [] )
 ];
 
 const corsOptions = {

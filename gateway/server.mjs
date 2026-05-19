@@ -122,10 +122,15 @@ async function authMiddleware(req, res, next) {
     req.headers['x-username']  = data.user.username;
 
     next();
-  } catch (e) {
-    const status = e.response?.status || 500;
-    return res.status(status).json({ error: e.response?.data?.error || 'Errore autorizzazione' });
+} catch (e) {
+  // Se backoffice è irraggiungibile, fail-safe: nega sempre l'accesso
+  if (!e.response) {
+    console.error('[authMiddleware] backoffice non raggiungibile:', e.message);
+    return res.status(401).json({ error: 'Servizio di autenticazione non disponibile' });
   }
+  return res.status(e.response.status).json({
+    error: e.response.data?.error || 'Errore autorizzazione'
+  });
 }
 // ── SPID routes — PUBBLICHE, prima di authMiddleware ─────────
 // Il flusso SAML richiede redirect e POST non autenticati

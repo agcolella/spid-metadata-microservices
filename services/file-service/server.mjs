@@ -224,6 +224,11 @@ app.get('/files/:filename/validate', requireAuth, async (req, res) => {
 
     const data = await upstream.json();
     res.status(upstream.status).json(data);
+    console.log('validate filename:', req.params.filename);
+    console.log('content starts with:', content.slice(0, 300));
+    console.log('has EntityDescriptor:', content.includes('EntityDescriptor'));
+    console.log('has SPSSODescriptor:', content.includes('SPSSODescriptor'));
+    console.log('has Signature:', content.includes('Signature'));
 
   } catch (e) {
     res.status(502).json({ error: e.message });

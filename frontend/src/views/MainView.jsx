@@ -101,6 +101,7 @@ export default function MainView() {
     setValidating(prev => { const s = ensureSet(prev); s.add(filename); return new Set(s); });
     try {
       const res = await axios.get(API.fileValidate(filename), getAuthHeaders());
+      console.log('VALIDATION RAW', filename, res.data);
       setFiles(prev =>
         Array.isArray(prev)
           ? prev.map(f => f.filename === filename ? { ...f, validation: res.data } : f)
@@ -665,7 +666,7 @@ const confirmCreatePR = async () => {
                         ? `${file.filename}::${file.entityID}`
                         : file.entityID;
                       const certInfo     = certCacheKey ? certificateCache[certCacheKey] : null;
-                      console.log('certCacheKey:', certCacheKey, 'cache keys:', Object.keys(certificateCache));
+                      //console.log('certCacheKey:', certCacheKey, 'cache keys:', Object.keys(certificateCache));
                       const certLoading  = file.entityID ? ensureSet(certificateLoading).has(file.entityID) : false;
                       const valErrors    = Array.isArray(file?.validation?.errors)   ? file.validation.errors   : [];
                       const valWarnings  = Array.isArray(file?.validation?.warnings) ? file.validation.warnings : [];

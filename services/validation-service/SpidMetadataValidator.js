@@ -8,8 +8,8 @@ import * as constants from './constants.js';
 
 function stripNamespaces(xmlString) {
   return xmlString
-    .replace(/<([a-zA-Z0-9_-]+):([a-zA-Z0-9_\-.]+)/g, '<$2')
-    .replace(/<\/([a-zA-Z0-9_-]+):([a-zA-Z0-9_\-.]+)>/g, '</$2>');
+    .replace(/<([a-zA-Z0-9_-]+):([a-zA-Z0-9_.-]+)/g, '<$2')
+    .replace(/<\/([a-zA-Z0-9_-]+):([a-zA-Z0-9_.-]+)>/g, '</$2>');
 }
 
 function isValidHttpUrl(str) {

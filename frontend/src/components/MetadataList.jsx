@@ -2,7 +2,9 @@ import React, { Component } from 'react';
 import MetadataView from './MetadataView';
 import apiClient from '../api/client';
 import Utility from '../utils/utility';
-import { API, getAuthHeaders } from '../services/api';  // adatta il path
+import axios from 'axios';
+import { API, getAuthHeaders } from '../services/api';
+import { API } from '../constants';
 
 class MetadataList extends Component {
   constructor(props) {
@@ -37,7 +39,7 @@ class MetadataList extends Component {
 
   loadMetadataList() {
     this.setBlockUI(true);
-    apiClient.get('/api/files')
+    axios.get(API.files, getAuthHeaders())
       .then((res) => {
         this.setBlockUI(false);
         const files = res.data;

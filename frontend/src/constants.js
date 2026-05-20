@@ -6,8 +6,8 @@ export const API_BASE = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8
 export const API = {
   files:          `${API_BASE}/api/files`,
   upload:         `${API_BASE}/api/files/upload`,
-  fileContent:    (f) => `${API_BASE}/api/files/files/${encodeURIComponent(f)}/content`,
-  fileValidate:   (f) => `${API_BASE}/api/files/files/${encodeURIComponent(f)}/validate`,
+  fileContent:    (f) => `${API_BASE}/api/files/${encodeURIComponent(f)}/content`,
+  fileValidate:   (f) => `${API_BASE}/api/files/${encodeURIComponent(f)}/validate`,
   deleteFiles:    `${API_BASE}/api/files/delete-xml-files`,
   validateGithub: `${API_BASE}/api/github/validate`,
   previewPR:      `${API_BASE}/api/pr/preview`,

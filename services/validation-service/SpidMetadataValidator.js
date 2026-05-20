@@ -38,15 +38,24 @@ export class SpidMetadataValidator {
   }
 
   load(xmlString) {
-    const clean  = stripNamespaces(xmlString);
-    const parser = new DOMParser();
-    this.doc = parser.parseFromString(clean, 'application/xml');
-    const parseErr = this.doc.getElementsByTagName('parsererror');
-    if (parseErr.length > 0) {
-      throw new Error(`Errore parsing XML: ${parseErr[0].textContent}`);
-    }
-    return this;
+  const clean = stripNamespaces(xmlString);
+
+  console.log('[validator] original start:', xmlString.slice(0, 250));
+  console.log('[validator] stripped start:', clean.slice(0, 250));
+
+  const parser = new DOMParser();
+  this.doc = parser.parseFromString(clean, 'application/xml');
+
+  console.log('[validator] EntityDescriptor nodes:', xpath.select('//EntityDescriptor', this.doc).length);
+  console.log('[validator] SPSSODescriptor nodes:', xpath.select('//EntityDescriptor/SPSSODescriptor', this.doc).length);
+  console.log('[validator] Signature nodes:', xpath.select('//EntityDescriptor/Signature', this.doc).length);
+
+  const parseErr = this.doc.getElementsByTagName('parsererror');
+  if (parseErr.length > 0) {
+    throw new Error(`Errore parsing XML: ${parseErr[0].textContent}`);
   }
+  return this;
+}
 
   _assert(condition, message, testId = '', level = 'error') {
     if (!condition) {

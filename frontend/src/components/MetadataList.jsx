@@ -36,7 +36,7 @@ class MetadataList extends Component {
 
   loadMetadataList() {
     this.setBlockUI(true);
-    apiClient.get('/api/files/files')
+    apiClient.get('/api/files')
       .then((res) => {
         this.setBlockUI(false);
         const files = res.data;

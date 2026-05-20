@@ -4,7 +4,7 @@ export const LS_KEY    = 'spid-pr-history';
 export const API_BASE = process.env.REACT_APP_GATEWAY_URL || 'http://localhost:8080';
 
 export const API = {
-  files:          `${API_BASE}/api/files/files`,
+  files:          `${API_BASE}/api/files`,
   upload:         `${API_BASE}/api/files/upload`,
   fileContent:    (f) => `${API_BASE}/api/files/files/${encodeURIComponent(f)}/content`,
   fileValidate:   (f) => `${API_BASE}/api/files/files/${encodeURIComponent(f)}/validate`,

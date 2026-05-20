@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import MetadataView from './MetadataView';
 import apiClient from '../api/client';
 import Utility from '../utils/utility';
+import { API, getAuthHeaders } from '../services/api';  // adatta il path
 
 class MetadataList extends Component {
   constructor(props) {

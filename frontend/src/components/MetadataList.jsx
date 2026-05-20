@@ -39,7 +39,7 @@ class MetadataList extends Component {
 
   loadMetadataList() {
     this.setBlockUI(true);
-    axios.get(API.files, getAuthHeaders())
+    apiClient.get('/api/files')
       .then((res) => {
         this.setBlockUI(false);
         const files = res.data;
